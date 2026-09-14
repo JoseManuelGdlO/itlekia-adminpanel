@@ -49,27 +49,24 @@ export default function KanbanPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Kanban</h1>
-        {user.role === 'admin' && selectedProjectId && (
-          <div className="flex items-center gap-2">
-            <select
-              value={selectedProjectId}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="rounded border px-2 py-2 text-sm"
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-            <TaskFormModal projectId={selectedProjectId} users={users} onCreated={handleTaskCreated} />
-          </div>
-        )}
-      </div>
+      {user.role === 'admin' && selectedProjectId && (
+        <div className="mb-4 flex items-center justify-end gap-2">
+          <select
+            value={selectedProjectId}
+            onChange={(e) => setSelectedProjectId(e.target.value)}
+            className="rounded-md border border-input bg-card px-2 py-2 text-sm"
+          >
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+          <TaskFormModal projectId={selectedProjectId} users={users} onCreated={handleTaskCreated} />
+        </div>
+      )}
       <DndContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-4">
+        <div className="flex gap-4 overflow-x-auto">
           {STATUSES.map((status) => (
             <KanbanColumn
               key={status}
