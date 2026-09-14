@@ -7,10 +7,27 @@ import NoteFormModal from '../components/notes/NoteFormModal';
 import PageSkeleton from '../components/PageSkeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+const STATUS_LABELS = {
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  review: 'Review',
+  done: 'Done',
+};
+
+function formatActivity(item) {
+  if (item.type === 'created') {
+    return `${item.user.name} creó la tarea`;
+  }
+  const fromLabel = STATUS_LABELS[item.fromStatus] || item.fromStatus;
+  const toLabel = STATUS_LABELS[item.toStatus] || item.toStatus;
+  return `${item.user.name} movió ${fromLabel} → ${toLabel}`;
+}
+
 export default function TaskDetailPage() {
   const { id } = useParams();
   const [task, setTask] = useState(null);
   const [notes, setNotes] = useState([]);
+  const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,6 +39,7 @@ export default function TaskDetailPage() {
       })
       .finally(() => setLoading(false));
     notesApi.listNotes({ taskId: id }).then(setNotes);
+    tasksApi.listTaskActivities(id).then(setActivities);
   }, [id]);
 
   function handleNoteCreated(note) {
@@ -55,6 +73,22 @@ export default function TaskDetailPage() {
         </CardHeader>
         <CardContent>
           <NotesList notes={notes} onDelete={handleNoteDelete} />
+        </CardContent>
+      </Card>
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle>Historial</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {activities.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sin actividad</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {activities.map((item) => (
+                <li key={item.id}>{formatActivity(item)}</li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>
