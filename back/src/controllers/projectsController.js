@@ -1,4 +1,5 @@
-const { Project, Task } = require('../models');
+const { Project } = require('../models');
+const { memberProjectIds } = require('../utils/projectAccess');
 
 async function list(req, res) {
   if (req.user.role === 'admin') {
@@ -6,11 +7,10 @@ async function list(req, res) {
     return res.json(projects);
   }
 
-  const assignedTasks = await Task.findAll({
-    where: { assigneeId: req.user.id },
-    attributes: ['projectId'],
-  });
-  const projectIds = [...new Set(assignedTasks.map((t) => t.projectId))];
+  const projectIds = await memberProjectIds(req.user.id);
+  if (projectIds.length === 0) {
+    return res.json([]);
+  }
   const projects = await Project.findAll({
     where: { id: projectIds },
     order: [['id', 'ASC']],
