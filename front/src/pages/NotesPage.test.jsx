@@ -30,4 +30,10 @@ describe('NotesPage', () => {
 
     await waitFor(() => expect(notesApi.deleteNote).toHaveBeenCalledWith(1));
   });
+
+  it('shows an empty state when there are no notes', async () => {
+    vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
+    render(<NotesPage />);
+    expect(await screen.findByText('Aún no hay notas')).toBeInTheDocument();
+  });
 });

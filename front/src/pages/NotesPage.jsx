@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import * as notesApi from '../api/notes';
 import NotesList from '../components/notes/NotesList';
 import NoteFormModal from '../components/notes/NoteFormModal';
+import { Card } from '@/components/ui/card';
 
 export default function NotesPage() {
   const [notes, setNotes] = useState([]);
@@ -20,12 +21,13 @@ export default function NotesPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Notas y Recordatorios</h1>
+    <div className="space-y-6 p-6">
+      <div className="flex justify-end">
         <NoteFormModal onCreated={handleCreated} />
       </div>
-      <NotesList notes={notes} onDelete={handleDelete} />
+      <Card className="shadow-card">
+        <NotesList notes={notes} onDelete={handleDelete} />
+      </Card>
     </div>
   );
 }

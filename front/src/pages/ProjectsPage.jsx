@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import * as projectsApi from '../api/projects';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import StatusPill from '../components/StatusPill';
 
 export default function ProjectsPage() {
   const { user } = useAuth();
@@ -31,37 +33,43 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-xl font-semibold">Proyectos</h1>
-
+    <div className="space-y-6 p-6">
       {user.role === 'admin' && (
-        <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2">
-          <Input placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} required />
-          <Input placeholder="Descripción" value={description} onChange={(e) => setDescription(e.target.value)} />
-          <Button type="submit">Crear proyecto</Button>
+        <form onSubmit={handleCreate}>
+          <Card className="shadow-card">
+            <CardContent className="flex flex-wrap items-end gap-2">
+              <Input placeholder="Nombre" value={name} onChange={(e) => setName(e.target.value)} required />
+              <Input placeholder="Descripción" value={description} onChange={(e) => setDescription(e.target.value)} />
+              <Button type="submit">Crear proyecto</Button>
+            </CardContent>
+          </Card>
         </form>
       )}
 
-      <ul className="space-y-2">
-        {projects.map((p) => (
-          <li key={p.id} className="flex items-center justify-between rounded border p-3">
-            <div>
-              <Link to={`/projects/${p.id}`} className="font-medium hover:underline">
-                {p.name}
-              </Link>
-              <p className="text-sm text-gray-600">{p.description}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs uppercase text-gray-500">{p.status}</span>
-              {user.role === 'admin' && (
-                <Button size="sm" variant="outline" onClick={() => handleArchive(p)}>
-                  {p.status === 'active' ? 'Archivar' : 'Reactivar'}
-                </Button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+      <Card className="shadow-card">
+        <CardContent>
+          <ul className="divide-y divide-border">
+            {projects.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-3 py-3">
+                <div>
+                  <Link to={`/projects/${p.id}`} className="font-medium hover:underline">
+                    {p.name}
+                  </Link>
+                  <p className="text-sm text-muted-foreground">{p.description}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusPill status={p.status} />
+                  {user.role === 'admin' && (
+                    <Button size="sm" variant="outline" onClick={() => handleArchive(p)}>
+                      {p.status === 'active' ? 'Archivar' : 'Reactivar'}
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }
