@@ -15,12 +15,15 @@
   "dependencies": {
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "mysql2": "^3.24.4",
+    "sequelize": "^6.37.8"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
     "jest": "^30.5.1",
     "nodemon": "^3.1.14",
+    "sqlite3": "^6.0.1",
     "supertest": "^7.2.2"
   }
 }
