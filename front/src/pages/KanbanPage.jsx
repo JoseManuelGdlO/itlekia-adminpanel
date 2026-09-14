@@ -24,11 +24,22 @@ export default function KanbanPage() {
   }, []);
 
   useEffect(() => {
+    let ignore = false;
+    setMembers([]);
+
     if (!selectedProjectId) {
-      setMembers([]);
-      return;
+      return () => {
+        ignore = true;
+      };
     }
-    projectsApi.listMembers(selectedProjectId).then(setMembers);
+
+    projectsApi.listMembers(selectedProjectId).then((data) => {
+      if (!ignore) setMembers(data);
+    });
+
+    return () => {
+      ignore = true;
+    };
   }, [selectedProjectId]);
 
   async function handleDragEnd(event) {
