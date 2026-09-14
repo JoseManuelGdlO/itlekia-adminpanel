@@ -57,10 +57,15 @@ describe('notes routes', () => {
   });
 
   it('only lists notes owned by the requesting user', async () => {
-    await Note.create({ userId: owner.id, title: 'Owner note', content: 'x' });
-    const res = await request(app).get('/notes').set('Cookie', otherCookie);
-    expect(res.status).toBe(200);
-    expect(res.body.length).toBe(0);
+    const note = await Note.create({ userId: owner.id, title: 'Owner note', content: 'x' });
+
+    const otherRes = await request(app).get('/notes').set('Cookie', otherCookie);
+    expect(otherRes.status).toBe(200);
+    expect(otherRes.body.length).toBe(0);
+
+    const ownerRes = await request(app).get('/notes').set('Cookie', ownerCookie);
+    expect(ownerRes.status).toBe(200);
+    expect(ownerRes.body.some((n) => n.id === note.id)).toBe(true);
   });
 
   it('rejects updating a note owned by someone else', async () => {
@@ -70,6 +75,15 @@ describe('notes routes', () => {
       .set('Cookie', otherCookie)
       .send({ title: 'Hijacked' });
     expect(res.status).toBe(403);
+  });
+
+  it('rejects deleting a note owned by someone else', async () => {
+    const note = await Note.create({ userId: owner.id, title: 'Owner note 4', content: 'x' });
+    const res = await request(app).delete(`/notes/${note.id}`).set('Cookie', otherCookie);
+    expect(res.status).toBe(403);
+
+    const stillExists = await Note.findByPk(note.id);
+    expect(stillExists).not.toBeNull();
   });
 
   it('owner can update and delete their note', async () => {
