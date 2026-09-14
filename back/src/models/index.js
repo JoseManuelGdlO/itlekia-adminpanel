@@ -9,6 +9,7 @@ const Project = require('./project')(sequelize);
 const Task = require('./task')(sequelize);
 const Note = require('./note')(sequelize);
 const ProjectMember = require('./projectMember')(sequelize);
+const TaskActivity = require('./taskActivity')(sequelize);
 
 Project.hasMany(Task, { foreignKey: 'projectId', as: 'tasks' });
 Task.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
@@ -38,6 +39,11 @@ User.belongsToMany(Project, {
   otherKey: 'projectId',
 });
 
+Task.hasMany(TaskActivity, { foreignKey: 'taskId', as: 'activities' });
+TaskActivity.belongsTo(Task, { foreignKey: 'taskId', as: 'task' });
+User.hasMany(TaskActivity, { foreignKey: 'userId', as: 'taskActivities' });
+TaskActivity.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -46,4 +52,5 @@ module.exports = {
   Task,
   Note,
   ProjectMember,
+  TaskActivity,
 };
