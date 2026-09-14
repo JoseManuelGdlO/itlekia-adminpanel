@@ -1,16 +1,31 @@
 import { useEffect, useState } from 'react';
 import { DndContext } from '@dnd-kit/core';
 import * as tasksApi from '../api/tasks';
+import * as projectsApi from '../api/projects';
+import * as usersApi from '../api/users';
+import { useAuth } from '../context/AuthContext';
 import KanbanColumn from '../components/kanban/KanbanColumn';
+import TaskFormModal from '../components/kanban/TaskFormModal';
 
 const STATUSES = ['todo', 'in_progress', 'review', 'done'];
 
 export default function KanbanPage() {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
 
   useEffect(() => {
     tasksApi.listTasks().then(setTasks);
-  }, []);
+    projectsApi.listProjects().then((data) => {
+      setProjects(data);
+      if (data.length > 0) setSelectedProjectId(data[0].id);
+    });
+    if (user.role === 'admin') {
+      usersApi.listUsers().then(setUsers);
+    }
+  }, [user.role]);
 
   async function handleDragEnd(event) {
     const { active, over } = event;
@@ -28,9 +43,18 @@ export default function KanbanPage() {
     }
   }
 
+  function handleTaskCreated(task) {
+    setTasks((prev) => [...prev, task]);
+  }
+
   return (
     <div className="p-6">
-      <h1 className="mb-4 text-xl font-semibold">Kanban</h1>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Kanban</h1>
+        {user.role === 'admin' && selectedProjectId && (
+          <TaskFormModal projectId={selectedProjectId} users={users} onCreated={handleTaskCreated} />
+        )}
+      </div>
       <DndContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4">
           {STATUSES.map((status) => (

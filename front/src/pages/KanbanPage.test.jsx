@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { AuthContext } from '../context/AuthContext';
 import KanbanPage from './KanbanPage';
 import * as tasksApi from '../api/tasks';
+import * as projectsApi from '../api/projects';
 
 function renderAs(role) {
   return render(
@@ -19,6 +20,7 @@ describe('KanbanPage', () => {
       { id: 2, title: 'Fix nav bug', status: 'in_progress' },
       { id: 3, title: 'QA pass', status: 'done' },
     ]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([]);
 
     renderAs('developer');
 
