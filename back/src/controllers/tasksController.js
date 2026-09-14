@@ -1,4 +1,4 @@
-const { Task } = require('../models');
+const { Task, Project, TaskActivity, sequelize } = require('../models');
 const { isProjectMember, memberProjectIds } = require('../utils/projectAccess');
 
 const VALID_STATUSES = ['todo', 'in_progress', 'review', 'done'];
@@ -31,8 +31,46 @@ async function list(req, res) {
 
 async function create(req, res) {
   const { projectId, title, description, assigneeId, dueDate } = req.body;
-  const task = await Task.create({ projectId, title, description, assigneeId, dueDate });
-  return res.status(201).json(task);
+  const project = await Project.findByPk(projectId);
+  if (!project) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+
+  if (req.user.role !== 'admin') {
+    const allowed = await isProjectMember(req.user.id, project.id);
+    if (!allowed) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    if (assigneeId) {
+      const assigneeOk = await isProjectMember(assigneeId, project.id);
+      if (!assigneeOk) {
+        return res.status(400).json({ error: 'Assignee must be a project member' });
+      }
+    }
+  }
+
+  const t = await sequelize.transaction();
+  try {
+    const task = await Task.create(
+      { projectId, title, description, assigneeId, dueDate },
+      { transaction: t }
+    );
+    await TaskActivity.create(
+      {
+        taskId: task.id,
+        userId: req.user.id,
+        type: 'created',
+        fromStatus: null,
+        toStatus: task.status,
+      },
+      { transaction: t }
+    );
+    await t.commit();
+    return res.status(201).json(task);
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 }
 
 async function update(req, res) {

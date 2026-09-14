@@ -8,14 +8,16 @@ describe('tasks routes', () => {
   let adminCookie;
   let developerCookie;
   let otherDeveloperCookie;
+  let developer;
+  let otherDeveloper;
   let project;
   let assignedTask;
 
   beforeAll(async () => {
     await sequelize.sync({ force: true });
     const admin = await User.create({ name: 'Admin', email: 'admin@example.com', passwordHash: 'x', role: 'admin' });
-    const developer = await User.create({ name: 'Dev', email: 'dev@example.com', passwordHash: 'x', role: 'developer' });
-    const otherDeveloper = await User.create({ name: 'Dev2', email: 'dev2@example.com', passwordHash: 'x', role: 'developer' });
+    developer = await User.create({ name: 'Dev', email: 'dev@example.com', passwordHash: 'x', role: 'developer' });
+    otherDeveloper = await User.create({ name: 'Dev2', email: 'dev2@example.com', passwordHash: 'x', role: 'developer' });
     adminCookie = `token=${signToken({ id: admin.id, role: 'admin' })}`;
     developerCookie = `token=${signToken({ id: developer.id, role: 'developer' })}`;
     otherDeveloperCookie = `token=${signToken({ id: otherDeveloper.id, role: 'developer' })}`;
@@ -54,12 +56,44 @@ describe('tasks routes', () => {
     expect(res.status).toBe(201);
   });
 
-  it('developer cannot create a task', async () => {
+  it('developer member creates a task assigned to another member', async () => {
+    await ProjectMember.create({ projectId: project.id, userId: otherDeveloper.id });
     const res = await request(app)
       .post('/tasks')
       .set('Cookie', developerCookie)
-      .send({ projectId: project.id, title: 'Nope' });
+      .send({ projectId: project.id, title: 'Pair work', assigneeId: otherDeveloper.id });
+    expect(res.status).toBe(201);
+    expect(res.body.title).toBe('Pair work');
+    const { TaskActivity } = require('../../src/models');
+    const activities = await TaskActivity.findAll({ where: { taskId: res.body.id } });
+    expect(activities).toHaveLength(1);
+    expect(activities[0].type).toBe('created');
+    expect(activities[0].toStatus).toBe('todo');
+  });
+
+  it('developer cannot create a task on a project they do not belong to', async () => {
+    const foreign = await Project.create({ name: 'Secret' });
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', developerCookie)
+      .send({ projectId: foreign.id, title: 'Nope' });
     expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'Forbidden' });
+  });
+
+  it('developer cannot assign a non-member', async () => {
+    const stranger = await User.create({
+      name: 'Stranger',
+      email: 'stranger@example.com',
+      passwordHash: 'x',
+      role: 'developer',
+    });
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', developerCookie)
+      .send({ projectId: project.id, title: 'Nope', assigneeId: stranger.id });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Assignee must be a project member' });
   });
 
   it('assignee can PATCH the status of their task', async () => {
