@@ -1,7 +1,7 @@
 process.env.JWT_SECRET = 'test-secret';
 const request = require('supertest');
 const app = require('../../src/app');
-const { sequelize, User, Project, Task } = require('../../src/models');
+const { sequelize, User, Project, ProjectMember, Task } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
 
 describe('tasks routes', () => {
@@ -21,6 +21,7 @@ describe('tasks routes', () => {
     otherDeveloperCookie = `token=${signToken({ id: otherDeveloper.id, role: 'developer' })}`;
 
     project = await Project.create({ name: 'Website Revamp' });
+    await ProjectMember.create({ projectId: project.id, userId: developer.id });
     assignedTask = await Task.create({ projectId: project.id, title: 'Build homepage', assigneeId: developer.id });
     await Task.create({ projectId: project.id, title: 'Not assigned to dev' });
   });
@@ -29,13 +30,20 @@ describe('tasks routes', () => {
     await sequelize.close();
   });
 
-  it('developer listing tasks only sees their own regardless of query params', async () => {
+  it('developer member listing tasks sees all tasks on the project', async () => {
     const res = await request(app)
       .get(`/tasks?projectId=${project.id}`)
       .set('Cookie', developerCookie);
     expect(res.status).toBe(200);
-    expect(res.body.length).toBe(1);
-    expect(res.body[0].id).toBe(assignedTask.id);
+    expect(res.body.length).toBe(2);
+  });
+
+  it('developer who is not a member gets 403 when filtering by projectId', async () => {
+    const res = await request(app)
+      .get(`/tasks?projectId=${project.id}`)
+      .set('Cookie', otherDeveloperCookie);
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'Forbidden' });
   });
 
   it('admin creates a task', async () => {

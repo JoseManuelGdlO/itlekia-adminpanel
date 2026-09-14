@@ -1,4 +1,5 @@
 const { Task } = require('../models');
+const { isProjectMember, memberProjectIds } = require('../utils/projectAccess');
 
 const VALID_STATUSES = ['todo', 'in_progress', 'review', 'done'];
 
@@ -11,9 +12,18 @@ async function list(req, res) {
   if (req.user.role === 'admin') {
     if (req.query.projectId) where.projectId = req.query.projectId;
     if (req.query.assigneeId) where.assigneeId = req.query.assigneeId;
+  } else if (req.query.projectId) {
+    const allowed = await isProjectMember(req.user.id, req.query.projectId);
+    if (!allowed) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    where.projectId = req.query.projectId;
   } else {
-    where.assigneeId = req.user.id;
-    if (req.query.projectId) where.projectId = req.query.projectId;
+    const ids = await memberProjectIds(req.user.id);
+    if (ids.length === 0) {
+      return res.json([]);
+    }
+    where.projectId = ids;
   }
   const tasks = await Task.findAll({ where, order: [['id', 'ASC']] });
   return res.json(tasks);
