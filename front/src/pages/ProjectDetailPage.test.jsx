@@ -2,8 +2,34 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import ProjectDetailPage from './ProjectDetailPage';
+import { AuthContext } from '../context/AuthContext';
 import * as projectsApi from '../api/projects';
 import * as notesApi from '../api/notes';
+import * as usersApi from '../api/users';
+
+function renderPage() {
+  return render(
+    <AuthContext.Provider value={{ user: { id: 1, name: 'Ada', role: 'admin' }, loading: false }}>
+      <MemoryRouter initialEntries={['/projects/7']}>
+        <Routes>
+          <Route path="/projects/:id" element={<ProjectDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    </AuthContext.Provider>
+  );
+}
+
+function renderMissing() {
+  return render(
+    <AuthContext.Provider value={{ user: { id: 1, name: 'Ada', role: 'admin' }, loading: false }}>
+      <MemoryRouter initialEntries={['/projects/99']}>
+        <Routes>
+          <Route path="/projects/:id" element={<ProjectDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    </AuthContext.Provider>
+  );
+}
 
 describe('ProjectDetailPage', () => {
   it('fetches the project and shows only notes linked to it', async () => {
@@ -13,31 +39,24 @@ describe('ProjectDetailPage', () => {
     vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([
       { id: 1, title: 'Kickoff notes', content: 'y', isReminder: false, projectId: 7 },
     ]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue([]);
 
-    render(
-      <MemoryRouter initialEntries={['/projects/7']}>
-        <Routes>
-          <Route path="/projects/:id" element={<ProjectDetailPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
+    renderPage();
 
     await waitFor(() => expect(screen.getByText('Website Revamp')).toBeInTheDocument());
     expect(notesApi.listNotes).toHaveBeenCalledWith({ projectId: '7' });
     expect(screen.getByText('Kickoff notes')).toBeInTheDocument();
+    expect(screen.getByText('Miembros')).toBeInTheDocument();
   });
 
   it('shows a not-found message when the project is missing', async () => {
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue([]);
 
-    render(
-      <MemoryRouter initialEntries={['/projects/99']}>
-        <Routes>
-          <Route path="/projects/:id" element={<ProjectDetailPage />} />
-        </Routes>
-      </MemoryRouter>
-    );
+    renderMissing();
 
     expect(await screen.findByText('No se encontró')).toBeInTheDocument();
   });

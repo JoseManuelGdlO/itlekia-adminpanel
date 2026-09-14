@@ -18,3 +18,17 @@ export async function updateProject(id, data) {
 export async function deleteProject(id) {
   await api.delete(`/projects/${id}`);
 }
+
+export async function listMembers(projectId) {
+  const res = await api.get(`/projects/${projectId}/members`);
+  return res.data;
+}
+
+export async function addMember(projectId, userId) {
+  const res = await api.post(`/projects/${projectId}/members`, { userId });
+  return res.data;
+}
+
+export async function removeMember(projectId, userId) {
+  await api.delete(`/projects/${projectId}/members/${userId}`);
+}

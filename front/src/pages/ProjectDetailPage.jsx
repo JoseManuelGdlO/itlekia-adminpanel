@@ -4,6 +4,7 @@ import * as projectsApi from '../api/projects';
 import * as notesApi from '../api/notes';
 import NotesList from '../components/notes/NotesList';
 import NoteFormModal from '../components/notes/NoteFormModal';
+import ProjectMembersCard from '../components/projects/ProjectMembersCard';
 import PageSkeleton from '../components/PageSkeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -48,6 +49,7 @@ export default function ProjectDetailPage() {
         <h2 className="font-heading text-xl font-semibold">{project.name}</h2>
         <p className="text-sm text-muted-foreground">{project.description}</p>
       </div>
+      <ProjectMembersCard projectId={project.id} />
       <Card className="shadow-card">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Notas del proyecto</CardTitle>
