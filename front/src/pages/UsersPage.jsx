@@ -57,7 +57,7 @@ export default function UsersPage() {
 
       <Card className="shadow-card">
         <CardContent>
-          <table className="w-full text-sm">
+          <table className="w-full text-sm [&_th]:px-3 [&_th]:py-2 [&_td]:px-3 [&_td]:py-2">
             <thead className="bg-background text-left text-xs text-muted-foreground">
               <tr>
                 <th>Nombre</th>

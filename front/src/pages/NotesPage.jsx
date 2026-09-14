@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import * as notesApi from '../api/notes';
 import NotesList from '../components/notes/NotesList';
 import NoteFormModal from '../components/notes/NoteFormModal';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function NotesPage() {
   const [notes, setNotes] = useState([]);
@@ -26,7 +26,9 @@ export default function NotesPage() {
         <NoteFormModal onCreated={handleCreated} />
       </div>
       <Card className="shadow-card">
-        <NotesList notes={notes} onDelete={handleDelete} />
+        <CardContent>
+          <NotesList notes={notes} onDelete={handleDelete} />
+        </CardContent>
       </Card>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   Columns3,
@@ -56,10 +56,29 @@ function Avatar({ name }) {
   );
 }
 
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
+    return window.matchMedia('(min-width: 1024px)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = (event) => setIsDesktop(event.matches);
+    mq.addEventListener('change', onChange);
+    setIsDesktop(mq.matches);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  return isDesktop;
+}
+
 export default function AppShell({ children }) {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isDesktop = useIsDesktop();
   const items = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
   const roleLabel = user.role === 'admin' ? 'Admin' : 'Developer';
 
@@ -106,12 +125,13 @@ export default function AppShell({ children }) {
         <button
           type="button"
           className="fixed inset-0 z-20 bg-rail/40 lg:hidden"
-          aria-label="Cerrar menú"
+          aria-label="Cerrar menú (fondo)"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside
+        inert={!sidebarOpen && !isDesktop}
         className={`fixed inset-y-0 left-12 z-30 flex w-56 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-120 lg:static lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
@@ -131,7 +151,7 @@ export default function AppShell({ children }) {
             <X />
           </Button>
         </div>
-        <nav className="mt-4 flex-1 space-y-1 px-2">
+        <nav aria-label="Secciones" className="mt-4 flex-1 space-y-1 px-2">
           {items.map((item) => {
             const Icon = item.icon;
             return (

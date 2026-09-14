@@ -52,7 +52,7 @@ export default function ProjectsPage() {
             {projects.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-3 py-3">
                 <div>
-                  <Link to={`/projects/${p.id}`} className="font-medium hover:underline">
+                  <Link to={`/projects/${p.id}`} className="font-medium text-primary hover:underline">
                     {p.name}
                   </Link>
                   <p className="text-sm text-muted-foreground">{p.description}</p>
