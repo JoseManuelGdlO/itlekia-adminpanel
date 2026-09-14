@@ -105,7 +105,7 @@ describe('KanbanPage', () => {
 
   it('lets a developer drag only their own task card', async () => {
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([
-      { id: 1, title: 'Own card', status: 'todo', projectId: 1, assigneeId: 7 },
+      { id: 1, title: 'Own card', status: 'todo', projectId: 1, assigneeId: '7' },
       { id: 2, title: 'Teammate card', status: 'todo', projectId: 1, assigneeId: 8 },
     ]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([{ id: 1, name: 'Project Alpha' }]);

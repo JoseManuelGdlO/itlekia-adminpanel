@@ -4,6 +4,10 @@ const { Task, ProjectMember } = require('../models');
 // Boot helper: copy existing task assignees into ProjectMember.
 // Task create/update must not call this. New assignees are not auto-members.
 async function backfillProjectMembers() {
+  if ((await ProjectMember.count()) > 0) {
+    return;
+  }
+
   const tasks = await Task.findAll({
     attributes: ['projectId', 'assigneeId'],
     where: { assigneeId: { [Op.ne]: null } },

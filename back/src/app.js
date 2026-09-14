@@ -24,4 +24,8 @@ app.use('/projects', projectsRoutes);
 app.use('/tasks', tasksRoutes);
 app.use('/notes', notesRoutes);
 
+app.use((err, req, res, next) => {
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 module.exports = app;

@@ -74,18 +74,31 @@ describe('project members routes', () => {
   });
 
   it('admin remove does not delete tasks', async () => {
+    const removedDeveloper = await User.create({
+      name: 'Removed',
+      email: 'removed@example.com',
+      passwordHash: 'x',
+      role: 'developer',
+    });
+    await ProjectMember.create({ projectId: project.id, userId: removedDeveloper.id });
+    await Task.create({
+      projectId: project.id,
+      title: 'Preserved after membership removal',
+      assigneeId: removedDeveloper.id,
+    });
+
     const del = await request(app)
-      .delete(`/projects/${project.id}/members/${outsider.id}`)
+      .delete(`/projects/${project.id}/members/${removedDeveloper.id}`)
       .set('Cookie', adminCookie);
     expect(del.status).toBe(204);
 
     const missing = await request(app)
-      .delete(`/projects/${project.id}/members/${outsider.id}`)
+      .delete(`/projects/${project.id}/members/${removedDeveloper.id}`)
       .set('Cookie', adminCookie);
     expect(missing.status).toBe(404);
     expect(missing.body).toEqual({ error: 'Member not found' });
 
-    const tasks = await Task.findAll({ where: { projectId: project.id } });
+    const tasks = await Task.findAll({ where: { assigneeId: removedDeveloper.id } });
     expect(tasks.length).toBeGreaterThan(0);
   });
 

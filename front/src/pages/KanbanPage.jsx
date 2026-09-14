@@ -65,7 +65,7 @@ export default function KanbanPage() {
   const visibleTasks = tasks.filter((t) => String(t.projectId) === String(selectedProjectId));
 
   function canDragTask(task) {
-    return user.role === 'admin' || task.assigneeId === user.id;
+    return user.role === 'admin' || String(task.assigneeId) === String(user.id);
   }
 
   return (

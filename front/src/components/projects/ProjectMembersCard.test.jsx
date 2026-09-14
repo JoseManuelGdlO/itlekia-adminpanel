@@ -5,11 +5,17 @@ import ProjectMembersCard from './ProjectMembersCard';
 import * as projectsApi from '../../api/projects';
 import * as usersApi from '../../api/users';
 
-function renderCard(role) {
-  return render(
+function card(role, projectId = 7) {
+  return (
     <AuthContext.Provider value={{ user: { id: 1, name: 'Ada', role }, loading: false }}>
-      <ProjectMembersCard projectId={7} />
+      <ProjectMembersCard projectId={projectId} />
     </AuthContext.Provider>
+  );
+}
+
+function renderCard(role, projectId) {
+  return render(
+    card(role, projectId)
   );
 }
 
@@ -35,6 +41,7 @@ describe('ProjectMembersCard', () => {
     await waitFor(() => expect(screen.getByText('Dev One')).toBeInTheDocument());
     expect(screen.getByText('dev1@example.com')).toBeInTheDocument();
     expect(screen.getByText('Agregar')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Usuario' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Dev Two' })).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '3' } });
@@ -65,5 +72,36 @@ describe('ProjectMembersCard', () => {
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue([]);
     renderCard('admin');
     expect(await screen.findByText('Sin miembros')).toBeInTheDocument();
+  });
+
+  it('clears members on project change and ignores stale responses', async () => {
+    let resolveSecond;
+    let resolveThird;
+    const secondMembers = new Promise((resolve) => {
+      resolveSecond = resolve;
+    });
+    const thirdMembers = new Promise((resolve) => {
+      resolveThird = resolve;
+    });
+    vi.spyOn(projectsApi, 'listMembers')
+      .mockResolvedValueOnce([{ id: 2, name: 'First Member' }])
+      .mockImplementationOnce(() => secondMembers)
+      .mockImplementationOnce(() => thirdMembers);
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValue([]);
+
+    const view = renderCard('admin', 7);
+    expect(await screen.findByText('First Member')).toBeInTheDocument();
+
+    view.rerender(card('admin', 8));
+    expect(screen.queryByText('First Member')).not.toBeInTheDocument();
+
+    view.rerender(card('admin', 9));
+    await waitFor(() => expect(projectsApi.listMembers).toHaveBeenCalledTimes(3));
+
+    resolveSecond([{ id: 3, name: 'Stale Member' }]);
+    await waitFor(() => expect(screen.queryByText('Stale Member')).not.toBeInTheDocument());
+
+    resolveThird([{ id: 4, name: 'Current Member' }]);
+    expect(await screen.findByText('Current Member')).toBeInTheDocument();
   });
 });

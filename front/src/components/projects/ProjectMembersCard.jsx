@@ -13,10 +13,19 @@ export default function ProjectMembersCard({ projectId }) {
   const [selectedUserId, setSelectedUserId] = useState('');
 
   useEffect(() => {
-    projectsApi.listMembers(projectId).then(setMembers);
+    let ignore = false;
+    setMembers([]);
+
+    projectsApi.listMembers(projectId).then((data) => {
+      if (!ignore) setMembers(data);
+    });
     if (isAdmin) {
       usersApi.listUsers().then(setUsers);
     }
+
+    return () => {
+      ignore = true;
+    };
   }, [projectId, isAdmin]);
 
   const available = users.filter((u) => !members.some((m) => m.id === u.id));
@@ -43,6 +52,7 @@ export default function ProjectMembersCard({ projectId }) {
         {isAdmin && (
           <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
             <select
+              aria-label="Usuario"
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
               className="rounded-md border border-input bg-card px-2 py-2 text-sm"

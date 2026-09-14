@@ -1,7 +1,7 @@
 process.env.JWT_SECRET = 'test-secret';
 const request = require('supertest');
 const app = require('../../src/app');
-const { sequelize, User, Project, ProjectMember, Task } = require('../../src/models');
+const { sequelize, User, Project, ProjectMember, Task, TaskActivity } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
 
 describe('tasks routes', () => {
@@ -40,6 +40,32 @@ describe('tasks routes', () => {
     expect(res.body.length).toBe(2);
   });
 
+  it('developer with no memberships gets an empty task list without projectId', async () => {
+    const memberless = await User.create({
+      name: 'Memberless',
+      email: 'memberless@example.com',
+      passwordHash: 'x',
+      role: 'developer',
+    });
+    const cookie = `token=${signToken({ id: memberless.id, role: 'developer' })}`;
+
+    const res = await request(app).get('/tasks').set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('developer without projectId sees every task in member projects', async () => {
+    const res = await request(app).get('/tasks').set('Cookie', developerCookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    expect(res.body.map((task) => task.title)).toEqual([
+      'Build homepage',
+      'Not assigned to dev',
+    ]);
+  });
+
   it('developer who is not a member gets 403 when filtering by projectId', async () => {
     const res = await request(app)
       .get(`/tasks?projectId=${project.id}`)
@@ -56,6 +82,22 @@ describe('tasks routes', () => {
     expect(res.status).toBe(201);
   });
 
+  it('rolls back task creation and returns JSON 500 when activity creation fails', async () => {
+    const activitySpy = jest
+      .spyOn(TaskActivity, 'create')
+      .mockRejectedValueOnce(new Error('activity insert failed'));
+
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Must roll back' });
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'Internal server error' });
+    expect(await Task.findOne({ where: { title: 'Must roll back' } })).toBeNull();
+    activitySpy.mockRestore();
+  });
+
   it('developer member creates a task assigned to another member', async () => {
     await ProjectMember.create({ projectId: project.id, userId: otherDeveloper.id });
     const res = await request(app)
@@ -64,7 +106,6 @@ describe('tasks routes', () => {
       .send({ projectId: project.id, title: 'Pair work', assigneeId: otherDeveloper.id });
     expect(res.status).toBe(201);
     expect(res.body.title).toBe('Pair work');
-    const { TaskActivity } = require('../../src/models');
     const activities = await TaskActivity.findAll({ where: { taskId: res.body.id } });
     expect(activities).toHaveLength(1);
     expect(activities[0].type).toBe('created');
