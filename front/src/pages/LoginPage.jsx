@@ -23,28 +23,39 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center">
-      <form onSubmit={handleSubmit} className="w-80 space-y-4 rounded border p-6">
-        <h1 className="text-xl font-semibold">Portal Admin</h1>
-        <Input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
+    <div className="flex min-h-screen flex-col lg:flex-row">
+      <div className="flex flex-col justify-center bg-rail px-8 py-10 text-white lg:w-[42%]">
+        <img
+          src="/intelekia-isotipo.png"
+          alt="Intelekia"
+          className="mb-4 size-14 object-contain"
         />
-        <Input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button type="submit" className="w-full">
-          Ingresar
-        </Button>
-      </form>
+        <p className="font-heading text-3xl font-semibold">Intelekia</p>
+        <p className="mt-2 text-sm text-white/70">Portal administrativo</p>
+      </div>
+      <div className="flex flex-1 items-center justify-center bg-card px-6 py-10">
+        <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
+          <h1 className="font-heading text-xl font-semibold">Ingresar</h1>
+          <Input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <Input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" className="w-full">
+            Ingresar
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }
