@@ -1,14 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import ProjectsPage from './ProjectsPage';
 import * as projectsApi from '../api/projects';
 
 function renderAs(role) {
   return render(
-    <AuthContext.Provider value={{ user: { id: 1, role }, loading: false }}>
-      <ProjectsPage />
-    </AuthContext.Provider>
+    <MemoryRouter>
+      <AuthContext.Provider value={{ user: { id: 1, role }, loading: false }}>
+        <ProjectsPage />
+      </AuthContext.Provider>
+    </MemoryRouter>
   );
 }
 

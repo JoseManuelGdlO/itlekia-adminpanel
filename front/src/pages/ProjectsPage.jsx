@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as projectsApi from '../api/projects';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,9 @@ export default function ProjectsPage() {
         {projects.map((p) => (
           <li key={p.id} className="flex items-center justify-between rounded border p-3">
             <div>
-              <p className="font-medium">{p.name}</p>
+              <Link to={`/projects/${p.id}`} className="font-medium hover:underline">
+                {p.name}
+              </Link>
               <p className="text-sm text-gray-600">{p.description}</p>
             </div>
             <div className="flex items-center gap-2">

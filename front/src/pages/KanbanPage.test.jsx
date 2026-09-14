@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import KanbanPage from './KanbanPage';
 import * as tasksApi from '../api/tasks';
@@ -8,9 +9,11 @@ import * as usersApi from '../api/users';
 
 function renderAs(role) {
   return render(
-    <AuthContext.Provider value={{ user: { id: 1, role }, loading: false }}>
-      <KanbanPage />
-    </AuthContext.Provider>
+    <MemoryRouter>
+      <AuthContext.Provider value={{ user: { id: 1, role }, loading: false }}>
+        <KanbanPage />
+      </AuthContext.Provider>
+    </MemoryRouter>
   );
 }
 
