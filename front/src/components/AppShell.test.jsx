@@ -4,16 +4,17 @@ import { MemoryRouter } from 'react-router-dom';
 import AppShell from './AppShell';
 import { AuthContext } from '../context/AuthContext';
 
-function renderWithUser(role) {
-  const AuthContextMock = AuthContext;
+function renderWithUser(role, { path = '/' } = {}) {
   return render(
-    <AuthContextMock.Provider value={{ user: { id: 1, name: 'Test', role }, loading: false, logout: vi.fn() }}>
-      <MemoryRouter>
+    <AuthContext.Provider
+      value={{ user: { id: 1, name: 'Test User', role }, loading: false, logout: vi.fn() }}
+    >
+      <MemoryRouter initialEntries={[path]}>
         <AppShell>
           <div>content</div>
         </AppShell>
       </MemoryRouter>
-    </AuthContextMock.Provider>
+    </AuthContext.Provider>
   );
 }
 
@@ -26,5 +27,20 @@ describe('AppShell', () => {
   it('hides the Usuarios link for developers', () => {
     renderWithUser('developer');
     expect(screen.queryByText('Usuarios')).not.toBeInTheDocument();
+  });
+
+  it('renders the Intelekia isotipo', () => {
+    renderWithUser('admin');
+    expect(screen.getByAltText('Intelekia')).toBeInTheDocument();
+  });
+
+  it('shows a visible Salir control', () => {
+    renderWithUser('admin');
+    expect(screen.getByRole('button', { name: 'Salir' })).toBeInTheDocument();
+  });
+
+  it('sets the top-bar title from the route', () => {
+    renderWithUser('admin', { path: '/kanban' });
+    expect(screen.getByRole('heading', { level: 1, name: 'Kanban' })).toBeInTheDocument();
   });
 });
