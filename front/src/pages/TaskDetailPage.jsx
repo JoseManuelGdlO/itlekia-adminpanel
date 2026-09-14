@@ -1,19 +1,26 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import * as tasksApi from '../api/tasks';
 import * as notesApi from '../api/notes';
 import NotesList from '../components/notes/NotesList';
 import NoteFormModal from '../components/notes/NoteFormModal';
+import PageSkeleton from '../components/PageSkeleton';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function TaskDetailPage() {
   const { id } = useParams();
   const [task, setTask] = useState(null);
   const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    tasksApi.listTasks().then((tasks) => {
-      setTask(tasks.find((t) => String(t.id) === id) || null);
-    });
+    setLoading(true);
+    tasksApi
+      .listTasks()
+      .then((tasks) => {
+        setTask(tasks.find((t) => String(t.id) === id) || null);
+      })
+      .finally(() => setLoading(false));
     notesApi.listNotes({ taskId: id }).then(setNotes);
   }, [id]);
 
@@ -26,22 +33,30 @@ export default function TaskDetailPage() {
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
   }
 
-  if (!task) return <div className="p-6">Cargando...</div>;
+  if (loading) return <PageSkeleton />;
+  if (!task) return <div className="p-6 text-sm text-muted-foreground">No se encontró</div>;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-xl font-semibold">{task.title}</h1>
-        <p className="text-sm text-gray-600">{task.description}</p>
+        <p className="text-xs text-muted-foreground">
+          <Link to="/kanban" className="text-primary hover:underline">
+            Kanban
+          </Link>
+          <span> / {task.title}</span>
+        </p>
+        <h2 className="font-heading text-xl font-semibold">{task.title}</h2>
+        <p className="text-sm text-muted-foreground">{task.description}</p>
       </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium">Notas de la tarea</h2>
+      <Card className="shadow-card">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Notas de la tarea</CardTitle>
           <NoteFormModal taskId={task.id} onCreated={handleNoteCreated} />
-        </div>
-        <NotesList notes={notes} onDelete={handleNoteDelete} />
-      </div>
+        </CardHeader>
+        <CardContent>
+          <NotesList notes={notes} onDelete={handleNoteDelete} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

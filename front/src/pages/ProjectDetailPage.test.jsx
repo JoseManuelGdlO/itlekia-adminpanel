@@ -26,4 +26,19 @@ describe('ProjectDetailPage', () => {
     expect(notesApi.listNotes).toHaveBeenCalledWith({ projectId: '7' });
     expect(screen.getByText('Kickoff notes')).toBeInTheDocument();
   });
+
+  it('shows a not-found message when the project is missing', async () => {
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([]);
+    vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
+
+    render(
+      <MemoryRouter initialEntries={['/projects/99']}>
+        <Routes>
+          <Route path="/projects/:id" element={<ProjectDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('No se encontró')).toBeInTheDocument();
+  });
 });
