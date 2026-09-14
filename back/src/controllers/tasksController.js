@@ -1,4 +1,4 @@
-const { Task, Project, TaskActivity, sequelize } = require('../models');
+const { Task, Project, TaskActivity, User, sequelize } = require('../models');
 const { isProjectMember, memberProjectIds } = require('../utils/projectAccess');
 
 const VALID_STATUSES = ['todo', 'in_progress', 'review', 'done'];
@@ -110,9 +110,58 @@ async function updateStatus(req, res) {
   if (!VALID_STATUSES.includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }
-  task.status = status;
-  await task.save();
-  return res.json(task);
+  if (task.status === status) {
+    return res.json(task);
+  }
+  const fromStatus = task.status;
+  const t = await sequelize.transaction();
+  try {
+    task.status = status;
+    await task.save({ transaction: t });
+    await TaskActivity.create(
+      {
+        taskId: task.id,
+        userId: req.user.id,
+        type: 'status_changed',
+        fromStatus,
+        toStatus: status,
+      },
+      { transaction: t }
+    );
+    await t.commit();
+    return res.json(task);
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
+}
+
+async function listActivities(req, res) {
+  const task = await Task.findByPk(req.params.id);
+  if (!task) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
+  if (req.user.role !== 'admin') {
+    const allowed = await isProjectMember(req.user.id, task.projectId);
+    if (!allowed) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  }
+  const rows = await TaskActivity.findAll({
+    where: { taskId: task.id },
+    include: [{ model: User, as: 'user', attributes: ['id', 'name'] }],
+    order: [['id', 'ASC']],
+  });
+  return res.json(
+    rows.map((row) => ({
+      id: row.id,
+      type: row.type,
+      fromStatus: row.fromStatus,
+      toStatus: row.toStatus,
+      createdAt: row.createdAt,
+      user: { id: row.user.id, name: row.user.name },
+    }))
+  );
 }
 
 async function remove(req, res) {
@@ -124,4 +173,4 @@ async function remove(req, res) {
   return res.status(204).send();
 }
 
-module.exports = { list, create, update, updateStatus, remove };
+module.exports = { list, create, update, updateStatus, listActivities, remove };
