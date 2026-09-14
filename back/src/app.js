@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const projectsRoutes = require('./routes/projects');
+const tasksRoutes = require('./routes/tasks');
 
 const app = express();
 
@@ -17,5 +18,6 @@ app.get('/health', (req, res) => {
 app.use('/auth', authRoutes);
 app.use('/users', usersRoutes);
 app.use('/projects', projectsRoutes);
+app.use('/tasks', tasksRoutes);
 
 module.exports = app;
