@@ -29,7 +29,7 @@ export default function DashboardPage() {
           const Icon = tile.icon;
           return (
             <Link key={tile.to} to={tile.to}>
-              <Card className="h-full shadow-[0_8px_24px_rgba(23,32,51,0.06)] transition-colors duration-120 hover:bg-accent">
+              <Card className="h-full shadow-card transition-colors duration-120 hover:bg-accent">
                 <CardContent className="space-y-2 pt-0">
                   <Icon className="size-5 text-primary" />
                   <p className="font-heading font-semibold">{tile.label}</p>
