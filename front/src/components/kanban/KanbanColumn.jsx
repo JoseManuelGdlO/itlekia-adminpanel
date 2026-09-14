@@ -8,7 +8,7 @@ const COLUMN_LABELS = {
   done: 'Done',
 };
 
-export default function KanbanColumn({ status, tasks }) {
+export default function KanbanColumn({ status, tasks, canDragTask }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
@@ -24,7 +24,7 @@ export default function KanbanColumn({ status, tasks }) {
       </h2>
       <div className="space-y-2">
         {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
+          <TaskCard key={task.id} task={task} draggable={!canDragTask || canDragTask(task)} />
         ))}
       </div>
     </div>

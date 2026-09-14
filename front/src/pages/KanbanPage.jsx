@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { DndContext } from '@dnd-kit/core';
 import * as tasksApi from '../api/tasks';
 import * as projectsApi from '../api/projects';
-import * as usersApi from '../api/users';
 import { useAuth } from '../context/AuthContext';
 import KanbanColumn from '../components/kanban/KanbanColumn';
 import TaskFormModal from '../components/kanban/TaskFormModal';
@@ -13,19 +12,24 @@ export default function KanbanPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [members, setMembers] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
 
   useEffect(() => {
     tasksApi.listTasks().then(setTasks);
     projectsApi.listProjects().then((data) => {
       setProjects(data);
-      if (data.length > 0) setSelectedProjectId(data[0].id);
+      if (data.length > 0) setSelectedProjectId(String(data[0].id));
     });
-    if (user.role === 'admin') {
-      usersApi.listUsers().then(setUsers);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setMembers([]);
+      return;
     }
-  }, [user.role]);
+    projectsApi.listMembers(selectedProjectId).then(setMembers);
+  }, [selectedProjectId]);
 
   async function handleDragEnd(event) {
     const { active, over } = event;
@@ -47,9 +51,15 @@ export default function KanbanPage() {
     setTasks((prev) => [...prev, task]);
   }
 
+  const visibleTasks = tasks.filter((t) => String(t.projectId) === String(selectedProjectId));
+
+  function canDragTask(task) {
+    return user.role === 'admin' || task.assigneeId === user.id;
+  }
+
   return (
     <div className="p-6">
-      {user.role === 'admin' && selectedProjectId && (
+      {projects.length > 0 && (
         <div className="mb-4 flex items-center justify-end gap-2">
           <select
             value={selectedProjectId}
@@ -57,12 +67,14 @@ export default function KanbanPage() {
             className="rounded-md border border-input bg-card px-2 py-2 text-sm"
           >
             {projects.map((project) => (
-              <option key={project.id} value={project.id}>
+              <option key={project.id} value={String(project.id)}>
                 {project.name}
               </option>
             ))}
           </select>
-          <TaskFormModal projectId={selectedProjectId} users={users} onCreated={handleTaskCreated} />
+          {selectedProjectId && (
+            <TaskFormModal projectId={selectedProjectId} users={members} onCreated={handleTaskCreated} />
+          )}
         </div>
       )}
       <DndContext onDragEnd={handleDragEnd}>
@@ -71,7 +83,8 @@ export default function KanbanPage() {
             <KanbanColumn
               key={status}
               status={status}
-              tasks={tasks.filter((t) => t.status === status)}
+              tasks={visibleTasks.filter((t) => t.status === status)}
+              canDragTask={canDragTask}
             />
           ))}
         </div>

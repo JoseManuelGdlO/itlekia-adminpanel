@@ -8,8 +8,11 @@ const DOT = {
   done: 'bg-teal-soft',
 };
 
-export default function TaskCard({ task }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: String(task.id) });
+export default function TaskCard({ task, draggable = true }) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: String(task.id),
+    disabled: !draggable,
+  });
 
   const style = transform
     ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
@@ -19,9 +22,11 @@ export default function TaskCard({ task }) {
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
-      className="cursor-grab rounded-lg bg-card p-2 text-sm shadow-card ring-1 ring-border"
+      {...(draggable ? listeners : {})}
+      {...(draggable ? attributes : {})}
+      className={`rounded-lg bg-card p-2 text-sm shadow-card ring-1 ring-border ${
+        draggable ? 'cursor-grab' : 'cursor-default'
+      }`}
     >
       <div className="flex items-start gap-2">
         <span className={`mt-1 size-2 shrink-0 rounded-full ${DOT[task.status] || DOT.todo}`} />
