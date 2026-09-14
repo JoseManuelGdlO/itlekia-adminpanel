@@ -1,9 +1,18 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import NoteFormModal from './NoteFormModal';
 import * as notesApi from '../../api/notes';
+import * as projectsApi from '../../api/projects';
+import * as tasksApi from '../../api/tasks';
 
 describe('NoteFormModal', () => {
+  beforeEach(() => {
+    // Default to empty lists so the lazily-fetched picker never hits a real
+    // network call unless a test explicitly overrides these.
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([]);
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
+  });
+
   it('does not reveal the form fields until the trigger opens the Dialog', async () => {
     render(<NoteFormModal onCreated={vi.fn()} />);
 
@@ -100,5 +109,86 @@ describe('NoteFormModal', () => {
       })
     );
     expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 6 }));
+  });
+
+  it('does not render the project/task picker when scoped to a fixed projectId or taskId', async () => {
+    render(<NoteFormModal projectId={2} onCreated={vi.fn()} />);
+
+    await act(async () => {
+      screen.getByText('Nueva nota').click();
+    });
+
+    expect(screen.queryByLabelText('Vincular a proyecto (opcional)')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Vincular a tarea (opcional)')).not.toBeInTheDocument();
+    expect(projectsApi.listProjects).not.toHaveBeenCalled();
+    expect(tasksApi.listTasks).not.toHaveBeenCalled();
+  });
+
+  it('shows a project/task picker on the standalone page and links the picked project on submit', async () => {
+    projectsApi.listProjects.mockResolvedValueOnce([
+      { id: 7, name: 'Website Revamp' },
+      { id: 8, name: 'Mobile App' },
+    ]);
+    tasksApi.listTasks.mockResolvedValueOnce([{ id: 12, title: 'Fix nav bug' }]);
+    vi.spyOn(notesApi, 'createNote').mockResolvedValueOnce({ id: 9, title: 'Linked note', isReminder: false });
+    const onCreated = vi.fn();
+
+    render(<NoteFormModal onCreated={onCreated} />);
+
+    await act(async () => {
+      screen.getByText('Nueva nota').click();
+    });
+
+    await waitFor(() => expect(screen.getByLabelText('Vincular a proyecto (opcional)')).toBeInTheDocument());
+    expect(screen.getByText('Website Revamp')).toBeInTheDocument();
+    expect(screen.getByText('Fix nav bug')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Linked note' } });
+      fireEvent.change(screen.getByLabelText('Contenido'), { target: { value: 'about the revamp' } });
+      fireEvent.change(screen.getByLabelText('Vincular a proyecto (opcional)'), { target: { value: '7' } });
+    });
+
+    // Picking a project clears any previously picked task (mutually exclusive).
+    expect(screen.getByLabelText('Vincular a tarea (opcional)').value).toBe('');
+
+    await act(async () => {
+      screen.getByText('Guardar').click();
+    });
+
+    expect(notesApi.createNote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Linked note',
+        content: 'about the revamp',
+        projectId: '7',
+        taskId: undefined,
+      })
+    );
+    expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 9 }));
+  });
+
+  it('picking a task clears a previously picked project (mutually exclusive)', async () => {
+    projectsApi.listProjects.mockResolvedValueOnce([{ id: 7, name: 'Website Revamp' }]);
+    tasksApi.listTasks.mockResolvedValueOnce([{ id: 12, title: 'Fix nav bug' }]);
+
+    render(<NoteFormModal onCreated={vi.fn()} />);
+
+    await act(async () => {
+      screen.getByText('Nueva nota').click();
+    });
+
+    await waitFor(() => expect(screen.getByLabelText('Vincular a proyecto (opcional)')).toBeInTheDocument());
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Vincular a proyecto (opcional)'), { target: { value: '7' } });
+    });
+    expect(screen.getByLabelText('Vincular a proyecto (opcional)').value).toBe('7');
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Vincular a tarea (opcional)'), { target: { value: '12' } });
+    });
+
+    expect(screen.getByLabelText('Vincular a tarea (opcional)').value).toBe('12');
+    expect(screen.getByLabelText('Vincular a proyecto (opcional)').value).toBe('');
   });
 });
