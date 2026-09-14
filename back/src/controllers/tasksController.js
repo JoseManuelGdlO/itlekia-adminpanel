@@ -2,6 +2,10 @@ const { Task } = require('../models');
 
 const VALID_STATUSES = ['todo', 'in_progress', 'review', 'done'];
 
+function isOwnerOrAdmin(task, user) {
+  return user.role === 'admin' || task.assigneeId === user.id;
+}
+
 async function list(req, res) {
   const where = {};
   if (req.user.role === 'admin') {
@@ -27,6 +31,10 @@ async function update(req, res) {
     return res.status(404).json({ error: 'Task not found' });
   }
 
+  if (!isOwnerOrAdmin(task, req.user)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   if (req.user.role === 'admin') {
     const { title, description, assigneeId, dueDate, projectId } = req.body;
     if (title !== undefined) task.title = title;
@@ -35,9 +43,6 @@ async function update(req, res) {
     if (dueDate !== undefined) task.dueDate = dueDate;
     if (projectId !== undefined) task.projectId = projectId;
   } else {
-    if (task.assigneeId !== req.user.id) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
     if (req.body.description !== undefined) task.description = req.body.description;
   }
 
@@ -50,7 +55,7 @@ async function updateStatus(req, res) {
   if (!task) {
     return res.status(404).json({ error: 'Task not found' });
   }
-  if (req.user.role !== 'admin' && task.assigneeId !== req.user.id) {
+  if (!isOwnerOrAdmin(task, req.user)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   const { status } = req.body;

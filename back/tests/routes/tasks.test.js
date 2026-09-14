@@ -71,6 +71,14 @@ describe('tasks routes', () => {
     expect(res.status).toBe(403);
   });
 
+  it('a different developer cannot PUT a task not assigned to them', async () => {
+    const res = await request(app)
+      .put(`/tasks/${assignedTask.id}`)
+      .set('Cookie', otherDeveloperCookie)
+      .send({ description: 'Trying to sneak in an update' });
+    expect(res.status).toBe(403);
+  });
+
   it('assignee PUT only applies the description field, ignoring others', async () => {
     const res = await request(app)
       .put(`/tasks/${assignedTask.id}`)
