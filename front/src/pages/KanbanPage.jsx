@@ -52,7 +52,20 @@ export default function KanbanPage() {
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Kanban</h1>
         {user.role === 'admin' && selectedProjectId && (
-          <TaskFormModal projectId={selectedProjectId} users={users} onCreated={handleTaskCreated} />
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              className="rounded border px-2 py-2 text-sm"
+            >
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+            <TaskFormModal projectId={selectedProjectId} users={users} onCreated={handleTaskCreated} />
+          </div>
         )}
       </div>
       <DndContext onDragEnd={handleDragEnd}>

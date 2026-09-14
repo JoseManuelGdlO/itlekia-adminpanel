@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { AuthContext } from '../context/AuthContext';
 import KanbanPage from './KanbanPage';
 import * as tasksApi from '../api/tasks';
 import * as projectsApi from '../api/projects';
+import * as usersApi from '../api/users';
 
 function renderAs(role) {
   return render(
@@ -31,5 +32,26 @@ describe('KanbanPage', () => {
     expect(screen.getByText('In Progress')).toBeInTheDocument();
     expect(screen.getByText('Review')).toBeInTheDocument();
     expect(screen.getByText('Done')).toBeInTheDocument();
+  });
+
+  it('lets an admin pick which project the dropdown is showing', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([
+      { id: 1, name: 'Project Alpha' },
+      { id: 2, name: 'Project Beta' },
+    ]);
+    vi.spyOn(usersApi, 'listUsers').mockResolvedValueOnce([]);
+
+    renderAs('admin');
+
+    const select = await screen.findByRole('combobox');
+    await waitFor(() => expect(select).toHaveValue('1'));
+
+    expect(screen.getByRole('option', { name: 'Project Alpha' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Project Beta' })).toBeInTheDocument();
+
+    fireEvent.change(select, { target: { value: '2' } });
+
+    expect(select).toHaveValue('2');
   });
 });
