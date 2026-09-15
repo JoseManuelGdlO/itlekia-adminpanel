@@ -7,6 +7,7 @@ import * as projectsApi from '../api/projects';
 import * as notesApi from '../api/notes';
 import * as usersApi from '../api/users';
 import * as financeApi from '../api/finance';
+import * as featuresApi from '../api/features';
 
 function renderPage() {
   return render(
@@ -43,6 +44,7 @@ describe('ProjectDetailPage', () => {
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue([]);
     vi.spyOn(financeApi, 'listFinance').mockResolvedValue([]);
+    vi.spyOn(featuresApi, 'listFeatures').mockResolvedValue([]);
 
     renderPage();
 
@@ -58,6 +60,7 @@ describe('ProjectDetailPage', () => {
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue([]);
     vi.spyOn(financeApi, 'listFinance').mockResolvedValue([]);
+    vi.spyOn(featuresApi, 'listFeatures').mockResolvedValue([]);
 
     renderMissing();
 
@@ -70,6 +73,7 @@ describe('ProjectDetailPage', () => {
     ]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(featuresApi, 'listFeatures').mockResolvedValue([]);
 
     render(
       <AuthContext.Provider
@@ -84,6 +88,7 @@ describe('ProjectDetailPage', () => {
     );
 
     await waitFor(() => expect(screen.getByText('Website Revamp')).toBeInTheDocument());
+    expect(screen.getByText('Features')).toBeInTheDocument();
     expect(screen.queryByText('Finanzas')).not.toBeInTheDocument();
   });
 });
