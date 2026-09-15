@@ -13,7 +13,11 @@ module.exports = (sequelize) => {
         },
       },
       title: { type: DataTypes.STRING, allowNull: false },
-      amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+      amount: {
+        type: DataTypes.DECIMAL(12, 2),
+        allowNull: false,
+        validate: { min: 0 },
+      },
       notes: { type: DataTypes.TEXT, allowNull: true, defaultValue: null },
       fileName: { type: DataTypes.STRING, allowNull: true, defaultValue: null },
       storedName: { type: DataTypes.STRING, allowNull: true, defaultValue: null },

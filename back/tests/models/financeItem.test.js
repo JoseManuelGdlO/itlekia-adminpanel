@@ -47,4 +47,16 @@ describe('FinanceItem model', () => {
       })
     ).rejects.toThrow();
   });
+
+  it('rejects a negative amount', async () => {
+    await expect(
+      FinanceItem.create({
+        projectId: project.id,
+        kind: 'cost',
+        title: 'Bad',
+        amount: -1,
+        createdBy: admin.id,
+      })
+    ).rejects.toThrow();
+  });
 });
