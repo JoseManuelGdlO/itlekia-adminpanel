@@ -8,10 +8,16 @@ const usersRoutes = require('./routes/users');
 const projectsRoutes = require('./routes/projects');
 const tasksRoutes = require('./routes/tasks');
 const notesRoutes = require('./routes/notes');
+const { isOriginAllowed } = require('./utils/corsOrigins');
 
 const app = express();
 
-app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
+app.use(cors({
+  origin(origin, callback) {
+    callback(null, isOriginAllowed(origin));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(cookieParser());
 

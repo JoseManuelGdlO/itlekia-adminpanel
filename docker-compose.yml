@@ -18,8 +18,8 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: ${PORT:-4000}
-      CORS_ORIGIN: ${CORS_ORIGIN:-}
-      FRONTEND_URL: ${FRONTEND_URL:-}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://backoffice.intelekia.cloud}
+      FRONTEND_URL: ${FRONTEND_URL:-https://backoffice.intelekia.cloud}
       DB_HOST: ${DB_HOST:-mysql}
       DB_PORT: ${DB_PORT:-3306}
       DB_USER: ${DB_USER:-}
