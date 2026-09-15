@@ -1,7 +1,15 @@
 process.env.JWT_SECRET = 'test-secret';
 const request = require('supertest');
 const app = require('../../src/app');
-const { sequelize, User, Project, ProjectMember, Task, TaskActivity } = require('../../src/models');
+const {
+  sequelize,
+  User,
+  Project,
+  ProjectMember,
+  Task,
+  TaskActivity,
+  BoardColumn,
+} = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
 const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 
@@ -182,6 +190,27 @@ describe('tasks routes', () => {
     expect(res.status).toBe(200);
     expect(res.body.description).toBe('Updated details');
     expect(res.body.title).toBe('Build homepage');
+  });
+
+  it("admin moving a task to another project resets it to that project's first column", async () => {
+    const destination = await Project.create({ name: 'Destination project' });
+    const [destinationFirstColumn] = await seedDefaultColumns(destination.id);
+    const task = await Task.create({
+      projectId: project.id,
+      title: 'Move me',
+      columnId: todoCol.id,
+    });
+
+    const res = await request(app)
+      .put(`/tasks/${task.id}`)
+      .set('Cookie', adminCookie)
+      .send({ projectId: destination.id });
+
+    expect(res.status).toBe(200);
+    expect(res.body.projectId).toBe(destination.id);
+    expect(res.body.columnId).toBe(destinationFirstColumn.id);
+    const column = await BoardColumn.findByPk(res.body.columnId);
+    expect(column.projectId).toBe(destination.id);
   });
 
   it('admin deletes a task', async () => {

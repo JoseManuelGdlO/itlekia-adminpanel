@@ -89,6 +89,17 @@ async function update(req, res) {
 
   if (req.user.role === 'admin') {
     const { title, description, assigneeId, dueDate, projectId } = req.body;
+    const nextProjectId = projectId === undefined ? task.projectId : projectId;
+    const currentColumn = await BoardColumn.findByPk(task.columnId);
+    if (
+      (projectId !== undefined && projectId !== task.projectId)
+      || !currentColumn
+      || currentColumn.projectId !== nextProjectId
+    ) {
+      const column = await firstColumn(nextProjectId);
+      if (!column) return res.status(400).json({ error: 'Invalid column' });
+      task.columnId = column.id;
+    }
     if (title !== undefined) task.title = title;
     if (description !== undefined) task.description = description;
     if (assigneeId !== undefined) task.assigneeId = assigneeId;

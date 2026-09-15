@@ -1,4 +1,5 @@
-const { Project, BoardColumn, Task, TaskActivity } = require('../models');
+const { DataTypes } = require('sequelize');
+const { sequelize, Project, BoardColumn, Task, TaskActivity } = require('../models');
 const { seedDefaultColumns, firstColumn } = require('./boardColumns');
 
 const SLUG_TO_NAME = {
@@ -7,6 +8,16 @@ const SLUG_TO_NAME = {
   review: 'Review',
   done: 'Done',
 };
+
+function columnNameForStatus(slug) {
+  return SLUG_TO_NAME[slug] || 'To Do';
+}
+
+function assignColumnFromLegacyStatus(task, statusSlug, columnsByName) {
+  const column = columnsByName[columnNameForStatus(statusSlug)];
+  if (column) task.columnId = column.id;
+  return task;
+}
 
 async function mapActivitySlugs() {
   const rows = await TaskActivity.findAll();
@@ -20,22 +31,69 @@ async function mapActivitySlugs() {
 }
 
 async function backfillBoardColumns() {
-  if ((await BoardColumn.count()) === 0) {
-    const projects = await Project.findAll();
-    for (const project of projects) {
+  const queryInterface = sequelize.getQueryInterface();
+  let taskColumns = await queryInterface.describeTable('Tasks');
+  if (!taskColumns.columnId) {
+    await queryInterface.addColumn('Tasks', 'columnId', {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    });
+    taskColumns = await queryInterface.describeTable('Tasks');
+  }
+
+  const projects = await Project.findAll();
+  for (const project of projects) {
+    if ((await BoardColumn.count({ where: { projectId: project.id } })) === 0) {
       await seedDefaultColumns(project.id);
     }
-    const tasks = await Task.findAll();
-    for (const task of tasks) {
+  }
+
+  if (taskColumns.status) {
+    const [legacyTasks] = await sequelize.query(
+      'SELECT id, projectId, status, columnId FROM Tasks'
+    );
+    const columnsByProject = new Map();
+    for (const task of legacyTasks) {
       if (task.columnId) continue;
-      const col = await firstColumn(task.projectId);
-      if (col) {
-        task.columnId = col.id;
-        await task.save();
+      if (!columnsByProject.has(task.projectId)) {
+        const columns = await BoardColumn.findAll({ where: { projectId: task.projectId } });
+        columnsByProject.set(
+          task.projectId,
+          Object.fromEntries(columns.map((column) => [column.name, column]))
+        );
       }
+      assignColumnFromLegacyStatus(task, task.status, columnsByProject.get(task.projectId));
+      if (task.columnId) {
+        await Task.update({ columnId: task.columnId }, { where: { id: task.id } });
+      }
+    }
+  }
+
+  const tasks = await Task.findAll({ where: { columnId: null } });
+  for (const task of tasks) {
+    const col = await firstColumn(task.projectId);
+    if (col) {
+      task.columnId = col.id;
+      await task.save();
+    }
+  }
+
+  const activityColumns = await queryInterface.describeTable('TaskActivities');
+  for (const name of ['fromStatus', 'toStatus']) {
+    const type = String(activityColumns[name]?.type || '').toUpperCase();
+    if (!type.startsWith('VARCHAR')) {
+      await queryInterface.changeColumn('TaskActivities', name, {
+        type: DataTypes.STRING,
+        allowNull: true,
+      });
     }
   }
   await mapActivitySlugs();
 }
 
-module.exports = { backfillBoardColumns, mapActivitySlugs };
+module.exports = {
+  backfillBoardColumns,
+  mapActivitySlugs,
+  columnNameForStatus,
+  assignColumnFromLegacyStatus,
+};

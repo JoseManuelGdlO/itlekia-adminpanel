@@ -1,6 +1,10 @@
+const { DataTypes } = require('sequelize');
 const { sequelize, Project, BoardColumn, TaskActivity, User, Task } = require('../../src/models');
 const { seedDefaultColumns } = require('../../src/utils/boardColumns');
-const { backfillBoardColumns } = require('../../src/utils/backfillBoardColumns');
+const {
+  backfillBoardColumns,
+  columnNameForStatus,
+} = require('../../src/utils/backfillBoardColumns');
 
 describe('backfillBoardColumns', () => {
   beforeAll(async () => {
@@ -45,5 +49,47 @@ describe('backfillBoardColumns', () => {
     await backfillBoardColumns();
     await row.reload();
     expect(row.toStatus).toBe('To Do');
+  });
+
+  it.each([
+    ['todo', 'To Do'],
+    ['in_progress', 'In Progress'],
+    ['review', 'Review'],
+    ['done', 'Done'],
+    ['unknown', 'To Do'],
+    [null, 'To Do'],
+  ])('maps legacy status %p to %s', (slug, expected) => {
+    expect(columnNameForStatus(slug)).toBe(expected);
+  });
+
+  it('adds columnId to a legacy Tasks table and preserves legacy status placement', async () => {
+    const project = await Project.create({ name: 'Legacy status project' });
+    await seedDefaultColumns(project.id);
+    const queryInterface = sequelize.getQueryInterface();
+
+    await queryInterface.removeColumn('Tasks', 'columnId');
+    await queryInterface.addColumn('Tasks', 'status', {
+      type: DataTypes.STRING,
+      allowNull: true,
+    });
+    await sequelize.query(
+      `INSERT INTO Tasks
+        (title, status, createdAt, updatedAt, projectId)
+       VALUES
+        ('Legacy in progress', 'in_progress', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :projectId)`,
+      { replacements: { projectId: project.id } }
+    );
+
+    await backfillBoardColumns();
+
+    const table = await queryInterface.describeTable('Tasks');
+    expect(table.columnId).toBeDefined();
+    const [rows] = await sequelize.query(
+      `SELECT c.name
+       FROM Tasks t
+       JOIN BoardColumns c ON c.id = t.columnId
+       WHERE t.title = 'Legacy in progress'`
+    );
+    expect(rows).toEqual([{ name: 'In Progress' }]);
   });
 });
