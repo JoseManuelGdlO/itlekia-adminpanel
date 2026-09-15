@@ -142,9 +142,10 @@ async function backfillBoardColumns() {
     taskColumns = await queryInterface.describeTable('Tasks');
   }
 
-  const projects = await Project.findAll();
-  for (const project of projects) {
-    if ((await BoardColumn.count({ where: { projectId: project.id } })) === 0) {
+  const shouldSeedDefaultColumns = (await BoardColumn.count()) === 0;
+  if (shouldSeedDefaultColumns) {
+    const projects = await Project.findAll();
+    for (const project of projects) {
       await seedDefaultColumns(project.id);
     }
   }
@@ -170,12 +171,14 @@ async function backfillBoardColumns() {
     }
   }
 
-  const tasks = await Task.findAll({ where: { columnId: null } });
-  for (const task of tasks) {
-    const col = await firstColumn(task.projectId);
-    if (col) {
-      task.columnId = col.id;
-      await task.save();
+  if (shouldSeedDefaultColumns) {
+    const tasks = await Task.findAll({ where: { columnId: null } });
+    for (const task of tasks) {
+      const col = await firstColumn(task.projectId);
+      if (col) {
+        task.columnId = col.id;
+        await task.save();
+      }
     }
   }
 

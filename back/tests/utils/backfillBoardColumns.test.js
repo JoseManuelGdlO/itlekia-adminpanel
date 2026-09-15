@@ -29,6 +29,17 @@ describe('backfillBoardColumns', () => {
     expect(await BoardColumn.count()).toBe(n);
   });
 
+  it('does not seed a later project after any board column exists', async () => {
+    const project = await Project.create({ name: 'Later project' });
+
+    await backfillBoardColumns();
+
+    expect(await BoardColumn.count({ where: { projectId: project.id } })).toBe(0);
+    const n = await BoardColumn.count();
+    await backfillBoardColumns();
+    expect(await BoardColumn.count()).toBe(n);
+  });
+
   it('rewrites activity slugs to default labels even when columns already exist', async () => {
     const project = await Project.create({ name: 'Act' });
     const [todoCol] = await seedDefaultColumns(project.id);
