@@ -22,6 +22,7 @@ function buildReminderIcs({ uid, title, description, start }) {
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
     `UID:${uid}`,
+    `DTSTAMP:${padIcsDate(new Date())}`,
     `DTSTART:${dtStart}`,
     `DTEND:${dtEnd}`,
     `SUMMARY:${escapeIcsText(title)}`,

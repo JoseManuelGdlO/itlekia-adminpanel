@@ -1,8 +1,9 @@
 process.env.JWT_SECRET = 'test-secret';
 const request = require('supertest');
 const app = require('../../src/app');
-const { sequelize, User, Note, NoteNotify, Project } = require('../../src/models');
+const { sequelize, User, Note, NoteNotify, Project, ProjectMember, Task } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
+const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 
 describe('notes routes', () => {
   let ownerCookie;
@@ -138,6 +139,96 @@ describe('notes routes', () => {
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ error: 'Invalid recipient' });
     expect(await Note.count({ where: { title } })).toBe(before);
+  });
+
+  it('rejects a non-array notifyUserIds without persisting', async () => {
+    const title = 'Bad ids shape';
+    const before = await Note.count({ where: { title } });
+    const remindAt = new Date(Date.now() + 60000).toISOString();
+    const res = await request(app)
+      .post('/notes')
+      .set('Cookie', ownerCookie)
+      .send({
+        title,
+        content: 'x',
+        isReminder: true,
+        remindAt,
+        notifyUserIds: 1,
+      });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid recipient' });
+    expect(await Note.count({ where: { title } })).toBe(before);
+  });
+
+  it('rejects non-finite notifyUserIds without persisting', async () => {
+    const title = 'Bad ids finite';
+    const before = await Note.count({ where: { title } });
+    const remindAt = new Date(Date.now() + 60000).toISOString();
+    const res = await request(app)
+      .post('/notes')
+      .set('Cookie', ownerCookie)
+      .send({
+        title,
+        content: 'x',
+        isReminder: true,
+        remindAt,
+        notifyUserIds: ['abc'],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid recipient' });
+    expect(await Note.count({ where: { title } })).toBe(before);
+  });
+
+  it('rejects a task reminder with a non-member of the task project', async () => {
+    const project = await Project.create({ name: 'Task Project' });
+    const [todoCol] = await seedDefaultColumns(project.id);
+    const task = await Task.create({
+      projectId: project.id,
+      title: 'Do thing',
+      columnId: todoCol.id,
+    });
+    const title = 'Task ping outsider';
+    const before = await Note.count({ where: { title } });
+    const remindAt = new Date(Date.now() + 60000).toISOString();
+    const res = await request(app)
+      .post('/notes')
+      .set('Cookie', ownerCookie)
+      .send({
+        title,
+        content: 'x',
+        isReminder: true,
+        remindAt,
+        taskId: task.id,
+        notifyUserIds: [other.id],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid recipient' });
+    expect(await Note.count({ where: { title } })).toBe(before);
+  });
+
+  it('creates a task reminder with a member of the task project', async () => {
+    const project = await Project.create({ name: 'Task Member Project' });
+    const [todoCol] = await seedDefaultColumns(project.id);
+    const task = await Task.create({
+      projectId: project.id,
+      title: 'Do member thing',
+      columnId: todoCol.id,
+    });
+    await ProjectMember.create({ projectId: project.id, userId: other.id });
+    const remindAt = new Date(Date.now() + 60000).toISOString();
+    const res = await request(app)
+      .post('/notes')
+      .set('Cookie', ownerCookie)
+      .send({
+        title: 'Task ping member',
+        content: 'x',
+        isReminder: true,
+        remindAt,
+        taskId: task.id,
+        notifyUserIds: [other.id],
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.notifyUsers).toEqual([{ id: other.id, name: 'Other' }]);
   });
 
   it('includes notifyUsers when listing notes', async () => {

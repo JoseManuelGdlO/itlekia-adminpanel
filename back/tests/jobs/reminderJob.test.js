@@ -157,6 +157,8 @@ describe('checkAndSendReminders', () => {
     try {
       await checkAndSendReminders();
 
+      expect(sendMail).toHaveBeenCalledTimes(2);
+      expect(sendMail.mock.calls[1][0].to).toBe(extra.email);
       await due.reload();
       expect(due.notifiedAt).not.toBeNull();
     } finally {

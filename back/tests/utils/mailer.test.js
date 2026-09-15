@@ -33,6 +33,7 @@ describe('mailer', () => {
     expect(mailOptions.attachments).toBeDefined();
     expect(mailOptions.attachments[0].filename).toBe('reminder.ics');
     expect(mailOptions.attachments[0].content).toContain('UID:note-9@intelekia');
+    expect(mailOptions.attachments[0].content).toMatch(/DTSTAMP:\d{8}T\d{6}Z/);
   });
 });
 
