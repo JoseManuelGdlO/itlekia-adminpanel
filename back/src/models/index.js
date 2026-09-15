@@ -13,6 +13,8 @@ const TaskActivity = require('./taskActivity')(sequelize);
 const FinanceItem = require('./financeItem')(sequelize);
 const Feature = require('./feature')(sequelize);
 const BoardColumn = require('./boardColumn')(sequelize);
+const NoteNotify = require('./noteNotify')(sequelize);
+const FeatureNotify = require('./featureNotify')(sequelize);
 
 Project.hasMany(Task, {
   foreignKey: 'projectId',
@@ -30,6 +32,19 @@ Task.belongsTo(User, { foreignKey: 'assigneeId', as: 'assignee' });
 
 User.hasMany(Note, { foreignKey: 'userId', as: 'notes' });
 Note.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+
+Note.belongsToMany(User, {
+  through: NoteNotify,
+  as: 'notifyUsers',
+  foreignKey: 'noteId',
+  otherKey: 'userId',
+});
+User.belongsToMany(Note, {
+  through: NoteNotify,
+  as: 'notifiedNotes',
+  foreignKey: 'userId',
+  otherKey: 'noteId',
+});
 
 Project.hasMany(Note, { foreignKey: 'projectId', as: 'notes' });
 Note.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
@@ -65,6 +80,19 @@ Feature.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
 User.hasMany(Feature, { foreignKey: 'userId', as: 'features' });
 Feature.belongsTo(User, { foreignKey: 'userId', as: 'creator' });
 
+Feature.belongsToMany(User, {
+  through: FeatureNotify,
+  as: 'notifyUsers',
+  foreignKey: 'featureId',
+  otherKey: 'userId',
+});
+User.belongsToMany(Feature, {
+  through: FeatureNotify,
+  as: 'notifiedFeatures',
+  foreignKey: 'userId',
+  otherKey: 'featureId',
+});
+
 Project.hasMany(BoardColumn, { foreignKey: 'projectId', as: 'boardColumns' });
 BoardColumn.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
 BoardColumn.hasMany(Task, {
@@ -90,4 +118,6 @@ module.exports = {
   FinanceItem,
   Feature,
   BoardColumn,
+  NoteNotify,
+  FeatureNotify,
 };
