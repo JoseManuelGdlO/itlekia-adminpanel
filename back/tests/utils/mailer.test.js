@@ -17,6 +17,24 @@ describe('mailer', () => {
       })
     );
   });
+
+  it('attaches reminder.ics with uid when uid and start are provided', async () => {
+    const sendMail = jest.fn().mockResolvedValue({});
+    __setTransporterForTests({ sendMail });
+
+    await sendReminderEmail({
+      to: 'dev@example.com',
+      note: { title: 'Ping client', content: 'Send status update' },
+      uid: 'note-9@intelekia',
+      start: new Date('2026-09-15T20:05:00.000Z'),
+    });
+
+    const mailOptions = sendMail.mock.calls[0][0];
+    expect(mailOptions.attachments).toBeDefined();
+    expect(mailOptions.attachments[0].filename).toBe('reminder.ics');
+    expect(mailOptions.attachments[0].content).toContain('UID:note-9@intelekia');
+    expect(mailOptions.attachments[0].content).toMatch(/DTSTAMP:\d{8}T\d{6}Z/);
+  });
 });
 
 describe('sendTaskAssignedEmail', () => {

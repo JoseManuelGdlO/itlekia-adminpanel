@@ -1,4 +1,4 @@
-const { sequelize, User, Note, Feature, Project } = require('../../src/models');
+const { sequelize, User, Note, Feature, Project, NoteNotify } = require('../../src/models');
 const mailer = require('../../src/utils/mailer');
 const { checkAndSendReminders } = require('../../src/jobs/reminderJob');
 
@@ -91,5 +91,78 @@ describe('checkAndSendReminders', () => {
     const second = await checkAndSendReminders();
     expect(sendMail).not.toHaveBeenCalled();
     expect(second).toBe(0);
+  });
+
+  it('emails owner and extra notify users and does not resend', async () => {
+    const extra = await User.create({
+      name: 'Ada',
+      email: 'ada@example.com',
+      passwordHash: 'x',
+      role: 'developer',
+    });
+    const sendMail = jest.fn().mockResolvedValue({});
+    mailer.__setTransporterForTests({ sendMail });
+
+    const due = await Note.create({
+      userId: user.id,
+      title: 'Standup',
+      content: 'Join call',
+      isReminder: true,
+      remindAt: new Date(Date.now() - 1000),
+    });
+    await NoteNotify.create({ noteId: due.id, userId: extra.id });
+
+    const sentCount = await checkAndSendReminders();
+
+    expect(sentCount).toBe(1);
+    expect(sendMail).toHaveBeenCalledTimes(2);
+    const recipients = sendMail.mock.calls.map((call) => call[0].to);
+    expect(recipients).toEqual(expect.arrayContaining([user.email, extra.email]));
+    for (const [mailOptions] of sendMail.mock.calls) {
+      expect(mailOptions.attachments).toBeDefined();
+      expect(mailOptions.attachments[0].filename).toBe('reminder.ics');
+      expect(mailOptions.attachments[0].content).toContain(`UID:note-${due.id}@intelekia`);
+    }
+    await due.reload();
+    expect(due.notifiedAt).not.toBeNull();
+
+    sendMail.mockClear();
+    await checkAndSendReminders();
+    expect(sendMail).not.toHaveBeenCalled();
+  });
+
+  it('sets notifiedAt when the first recipient send fails', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const extra = await User.create({
+      name: 'Bob',
+      email: 'bob@example.com',
+      passwordHash: 'x',
+      role: 'developer',
+    });
+    const sendMail = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('SMTP down'))
+      .mockResolvedValueOnce({});
+    mailer.__setTransporterForTests({ sendMail });
+
+    const due = await Note.create({
+      userId: user.id,
+      title: 'Partial fail',
+      content: 'Still mark notified',
+      isReminder: true,
+      remindAt: new Date(Date.now() - 1000),
+    });
+    await NoteNotify.create({ noteId: due.id, userId: extra.id });
+
+    try {
+      await checkAndSendReminders();
+
+      expect(sendMail).toHaveBeenCalledTimes(2);
+      expect(sendMail.mock.calls[1][0].to).toBe(extra.email);
+      await due.reload();
+      expect(due.notifiedAt).not.toBeNull();
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });

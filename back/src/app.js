@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/auth');
+const notifyUsersRoutes = require('./routes/notifyUsers');
 const usersRoutes = require('./routes/users');
 const projectsRoutes = require('./routes/projects');
 const tasksRoutes = require('./routes/tasks');
@@ -19,6 +20,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/auth', authRoutes);
+app.use('/notify-users', notifyUsersRoutes);
 app.use('/users', usersRoutes);
 app.use('/projects', projectsRoutes);
 app.use('/tasks', tasksRoutes);

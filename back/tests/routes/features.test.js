@@ -1,7 +1,7 @@
 process.env.JWT_SECRET = 'test-secret';
 const request = require('supertest');
 const app = require('../../src/app');
-const { sequelize, User, Project, ProjectMember } = require('../../src/models');
+const { sequelize, User, Project, ProjectMember, Feature } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
 
 describe('features routes', () => {
@@ -10,12 +10,14 @@ describe('features routes', () => {
   let outsiderCookie;
   let project;
   let admin;
+  let member;
+  let outsider;
 
   beforeAll(async () => {
     await sequelize.sync({ force: true });
     admin = await User.create({ name: 'Admin', email: 'admin@example.com', passwordHash: 'x', role: 'admin' });
-    const member = await User.create({ name: 'Dev', email: 'dev@example.com', passwordHash: 'x', role: 'developer' });
-    const outsider = await User.create({ name: 'Out', email: 'out@example.com', passwordHash: 'x', role: 'developer' });
+    member = await User.create({ name: 'Dev', email: 'dev@example.com', passwordHash: 'x', role: 'developer' });
+    outsider = await User.create({ name: 'Out', email: 'out@example.com', passwordHash: 'x', role: 'developer' });
     adminCookie = `token=${signToken({ id: admin.id, role: 'admin' })}`;
     memberCookie = `token=${signToken({ id: member.id, role: 'developer' })}`;
     outsiderCookie = `token=${signToken({ id: outsider.id, role: 'developer' })}`;
@@ -190,5 +192,54 @@ describe('features routes', () => {
       .send({ title: 'No access' });
     expect(wrongProject.status).toBe(404);
     expect(wrongProject.body).toEqual({ error: 'Feature not found' });
+  });
+
+  it('admin creates a reminder with extra notify users', async () => {
+    const created = await request(app)
+      .post(`/projects/${project.id}/features`)
+      .set('Cookie', adminCookie)
+      .send({
+        title: 'Remind extras',
+        isReminder: true,
+        remindAt: new Date().toISOString(),
+        notifyUserIds: [member.id],
+      });
+    expect(created.status).toBe(201);
+    expect(created.body.notifyUsers[0].name).toBe('Dev');
+  });
+
+  it('rejects a reminder with a non-member recipient', async () => {
+    const title = 'Invalid extra';
+    const before = await Feature.count({ where: { title } });
+    const created = await request(app)
+      .post(`/projects/${project.id}/features`)
+      .set('Cookie', adminCookie)
+      .send({
+        title,
+        isReminder: true,
+        remindAt: new Date().toISOString(),
+        notifyUserIds: [outsider.id],
+      });
+    expect(created.status).toBe(400);
+    expect(created.body).toEqual({ error: 'Invalid recipient' });
+    expect(await Feature.count({ where: { title } })).toBe(before);
+  });
+
+  it('includes notifyUsers when listing features as a member', async () => {
+    const created = await request(app)
+      .post(`/projects/${project.id}/features`)
+      .set('Cookie', adminCookie)
+      .send({
+        title: 'Listed extras',
+        isReminder: true,
+        remindAt: new Date().toISOString(),
+        notifyUserIds: [member.id],
+      });
+    const listed = await request(app)
+      .get(`/projects/${project.id}/features`)
+      .set('Cookie', memberCookie);
+    expect(listed.status).toBe(200);
+    const found = listed.body.find((feature) => feature.id === created.body.id);
+    expect(found.notifyUsers).toEqual([{ id: member.id, name: 'Dev' }]);
   });
 });

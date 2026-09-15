@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import * as featuresApi from '../../api/features';
+import * as projectsApi from '../../api/projects';
+import NotifyUserPicker from '../notes/NotifyUserPicker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,6 +30,8 @@ export default function ProjectFeaturesCard({ projectId }) {
   const [features, setFeatures] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [notifyUsers, setNotifyUsers] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   useEffect(() => {
     let ignore = false;
@@ -42,6 +46,28 @@ export default function ProjectFeaturesCard({ projectId }) {
     };
   }, [projectId]);
 
+  useEffect(() => {
+    if (!form.isReminder) {
+      setNotifyUsers([]);
+      setSelectedIds([]);
+      return;
+    }
+
+    let ignore = false;
+    projectsApi
+      .listMembers(projectId)
+      .then((data) => {
+        if (!ignore) {
+          setNotifyUsers(data.filter((u) => String(u.id) !== String(user.id)));
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      ignore = true;
+    };
+  }, [form.isReminder, projectId, user.id]);
+
   function updateForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
   }
@@ -54,10 +80,19 @@ export default function ProjectFeaturesCard({ projectId }) {
       status: form.status,
       isReminder: form.isReminder,
       remindAt: form.isReminder ? form.remindAt : undefined,
+      notifyUserIds: form.isReminder ? selectedIds : [],
     });
     setFeatures((current) => [...current, created]);
     setForm(EMPTY_FORM);
+    setSelectedIds([]);
+    setNotifyUsers([]);
     setOpen(false);
+  }
+
+  function handleToggle(id) {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
+    );
   }
 
   async function handleDelete(featureId) {
@@ -117,16 +152,23 @@ export default function ProjectFeaturesCard({ projectId }) {
                   <Label htmlFor="feature-is-reminder">Recordatorio</Label>
                 </div>
                 {form.isReminder && (
-                  <div>
-                    <Label htmlFor="feature-remind-at">Fecha y hora</Label>
-                    <Input
-                      id="feature-remind-at"
-                      type="datetime-local"
-                      value={form.remindAt}
-                      onChange={(event) => updateForm('remindAt', event.target.value)}
-                      required
+                  <>
+                    <div>
+                      <Label htmlFor="feature-remind-at">Fecha y hora</Label>
+                      <Input
+                        id="feature-remind-at"
+                        type="datetime-local"
+                        value={form.remindAt}
+                        onChange={(event) => updateForm('remindAt', event.target.value)}
+                        required
+                      />
+                    </div>
+                    <NotifyUserPicker
+                      users={notifyUsers}
+                      selectedIds={selectedIds}
+                      onToggle={handleToggle}
                     />
-                  </div>
+                  </>
                 )}
                 <Button type="submit">Guardar</Button>
               </form>
@@ -152,6 +194,11 @@ export default function ProjectFeaturesCard({ projectId }) {
                   <p className="text-xs text-muted-foreground">
                     {feature.status === 'done' ? 'Hecho' : 'Pendiente'}
                   </p>
+                  {feature.notifyUsers?.length ? (
+                    <p className="text-xs text-muted-foreground">
+                      También: {feature.notifyUsers.map((u) => u.name).join(', ')}
+                    </p>
+                  ) : null}
                 </div>
                 {isAdmin && (
                   <Button

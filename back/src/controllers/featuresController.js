@@ -1,7 +1,16 @@
-const { Feature, Project } = require('../models');
+const { sequelize, Feature, Project, User, FeatureNotify } = require('../models');
 const { isProjectMember } = require('../utils/projectAccess');
+const { resolveNotifyUserIds } = require('../utils/notifyRecipients');
 
 const STATUSES = ['pending', 'done'];
+
+function publicNotifyUsers(feature) {
+  return (feature.notifyUsers || []).map((u) => ({ id: u.id, name: u.name }));
+}
+
+function featureJson(feature) {
+  return { ...feature.toJSON(), notifyUsers: publicNotifyUsers(feature) };
+}
 
 async function loadProject(req, res) {
   const project = await Project.findByPk(req.params.id);
@@ -35,30 +44,63 @@ async function list(req, res) {
   const features = await Feature.findAll({
     where: { projectId: project.id },
     order: [['id', 'ASC']],
+    include: { model: User, as: 'notifyUsers' },
   });
-  return res.json(features);
+  return res.json(features.map(featureJson));
 }
 
 async function create(req, res) {
   const project = await loadProject(req, res);
   if (!project) return;
-  const { title, description, status, isReminder, remindAt } = req.body;
+  const { title, description, status, isReminder, remindAt, notifyUserIds } = req.body;
   if (typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Invalid title' });
   }
   if (status !== undefined && !STATUSES.includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }
-  const feature = await Feature.create({
-    projectId: project.id,
-    userId: req.user.id,
-    title,
-    description,
-    status: status || 'pending',
-    isReminder: Boolean(isReminder),
-    remindAt: isReminder ? remindAt : null,
+  const t = await sequelize.transaction();
+  let feature;
+  try {
+    feature = await Feature.create(
+      {
+        projectId: project.id,
+        userId: req.user.id,
+        title,
+        description,
+        status: status || 'pending',
+        isReminder: Boolean(isReminder),
+        remindAt: isReminder ? remindAt : null,
+      },
+      { transaction: t }
+    );
+
+    if (isReminder) {
+      const extras = await resolveNotifyUserIds(notifyUserIds, {
+        projectId: project.id,
+        actorId: req.user.id,
+      });
+      if (extras.length > 0) {
+        await FeatureNotify.bulkCreate(
+          extras.map((userId) => ({ featureId: feature.id, userId })),
+          { transaction: t }
+        );
+      }
+    }
+
+    await t.commit();
+  } catch (err) {
+    await t.rollback();
+    if (err.message === 'Invalid recipient') {
+      return res.status(400).json({ error: 'Invalid recipient' });
+    }
+    throw err;
+  }
+
+  const withUsers = await Feature.findByPk(feature.id, {
+    include: { model: User, as: 'notifyUsers' },
   });
-  return res.status(201).json(feature);
+  return res.status(201).json(featureJson(withUsers));
 }
 
 async function update(req, res) {

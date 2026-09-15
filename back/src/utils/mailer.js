@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const { buildReminderIcs } = require('./reminderIcs');
 
 let transporter = null;
 
@@ -20,13 +21,20 @@ function __setTransporterForTests(fakeTransporter) {
   transporter = fakeTransporter;
 }
 
-async function sendReminderEmail({ to, note }) {
+async function sendReminderEmail({ to, note, uid, start }) {
+  const ics = buildReminderIcs({
+    uid: uid ?? 'note-unknown@intelekia',
+    title: note.title,
+    description: note.content,
+    start: start ?? new Date(),
+  });
   const client = getTransporter();
   await client.sendMail({
     from: process.env.SMTP_FROM,
     to,
     subject: `Recordatorio: ${note.title}`,
     text: note.content,
+    attachments: [{ filename: 'reminder.ics', content: ics, contentType: 'text/calendar' }],
   });
 }
 
