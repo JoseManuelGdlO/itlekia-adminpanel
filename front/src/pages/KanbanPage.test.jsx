@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import KanbanPage from './KanbanPage';
+import KanbanPage, { rollbackTaskColumn } from './KanbanPage';
 import * as tasksApi from '../api/tasks';
 import * as projectsApi from '../api/projects';
 import * as columnsApi from '../api/columns';
@@ -23,6 +23,28 @@ function renderAs(role, userId = 1) {
     </MemoryRouter>
   );
 }
+
+describe('rollbackTaskColumn', () => {
+  it('restores only the failed task and preserves every other task', () => {
+    const tasks = [
+      { id: 1, title: 'Failed drag', columnId: 12, projectId: 1 },
+      { id: 2, title: 'Current task', columnId: 22, projectId: 2 },
+    ];
+
+    expect(rollbackTaskColumn(tasks, 1, 11)).toEqual([
+      { id: 1, title: 'Failed drag', columnId: 11, projectId: 1 },
+      tasks[1],
+    ]);
+  });
+
+  it('leaves another project task list unchanged when the dragged task is absent', () => {
+    const currentProjectTasks = [
+      { id: 2, title: 'Current project task', columnId: 22, projectId: 2 },
+    ];
+
+    expect(rollbackTaskColumn(currentProjectTasks, 1, 11)).toBe(currentProjectTasks);
+  });
+});
 
 describe('KanbanPage', () => {
   it('groups fetched tasks for the selected project into API columns', async () => {

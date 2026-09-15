@@ -7,6 +7,14 @@ import { useAuth } from '../context/AuthContext';
 import KanbanColumn from '../components/kanban/KanbanColumn';
 import TaskFormModal from '../components/kanban/TaskFormModal';
 
+export function rollbackTaskColumn(tasks, taskId, previousColumnId) {
+  if (!tasks.some((task) => task.id === taskId)) return tasks;
+
+  return tasks.map((task) =>
+    task.id === taskId ? { ...task, columnId: previousColumnId } : task
+  );
+}
+
 export default function KanbanPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
@@ -55,13 +63,14 @@ export default function KanbanPage() {
 
     const taskId = Number(active.id);
     const newColumnId = Number(over.id);
+    const previousColumnId = tasks.find((task) => task.id === taskId)?.columnId;
 
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, columnId: newColumnId } : t)));
 
     try {
       await tasksApi.updateTaskColumn(taskId, newColumnId);
     } catch {
-      tasksApi.listTasks({ projectId: selectedProjectId }).then(setTasks);
+      setTasks((prev) => rollbackTaskColumn(prev, taskId, previousColumnId));
     }
   }
 
