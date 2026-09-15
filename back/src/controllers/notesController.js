@@ -1,15 +1,28 @@
-const { Note } = require('../models');
+const { sequelize, Note, User, NoteNotify, Task } = require('../models');
+const { resolveNotifyUserIds } = require('../utils/notifyRecipients');
+
+function publicNotifyUsers(note) {
+  return (note.notifyUsers || []).map((u) => ({ id: u.id, name: u.name }));
+}
+
+function noteJson(note) {
+  return { ...note.toJSON(), notifyUsers: publicNotifyUsers(note) };
+}
 
 async function list(req, res) {
   const where = { userId: req.user.id };
   if (req.query.projectId) where.projectId = req.query.projectId;
   if (req.query.taskId) where.taskId = req.query.taskId;
-  const notes = await Note.findAll({ where, order: [['id', 'DESC']] });
-  return res.json(notes);
+  const notes = await Note.findAll({
+    where,
+    order: [['id', 'DESC']],
+    include: { model: User, as: 'notifyUsers' },
+  });
+  return res.json(notes.map(noteJson));
 }
 
 async function create(req, res) {
-  const { title, content, projectId, taskId, isReminder, remindAt } = req.body;
+  const { title, content, projectId, taskId, isReminder, remindAt, notifyUserIds } = req.body;
 
   if (projectId && taskId) {
     return res.status(400).json({ error: 'A note cannot be linked to both a project and a task' });
@@ -18,16 +31,53 @@ async function create(req, res) {
     return res.status(400).json({ error: 'A reminder note requires remindAt' });
   }
 
-  const note = await Note.create({
-    userId: req.user.id,
-    title,
-    content,
-    projectId: projectId || null,
-    taskId: taskId || null,
-    isReminder: !!isReminder,
-    remindAt: isReminder ? remindAt : null,
+  const t = await sequelize.transaction();
+  let note;
+  try {
+    note = await Note.create(
+      {
+        userId: req.user.id,
+        title,
+        content,
+        projectId: projectId || null,
+        taskId: taskId || null,
+        isReminder: !!isReminder,
+        remindAt: isReminder ? remindAt : null,
+      },
+      { transaction: t }
+    );
+
+    if (isReminder) {
+      let memberProjectId = projectId || null;
+      if (!memberProjectId && taskId) {
+        const task = await Task.findByPk(taskId, { transaction: t });
+        if (task) memberProjectId = task.projectId;
+      }
+      const extras = await resolveNotifyUserIds(notifyUserIds, {
+        projectId: memberProjectId,
+        actorId: req.user.id,
+      });
+      if (extras.length > 0) {
+        await NoteNotify.bulkCreate(
+          extras.map((userId) => ({ noteId: note.id, userId })),
+          { transaction: t }
+        );
+      }
+    }
+
+    await t.commit();
+  } catch (err) {
+    await t.rollback();
+    if (err.message === 'Invalid recipient') {
+      return res.status(400).json({ error: 'Invalid recipient' });
+    }
+    throw err;
+  }
+
+  const withUsers = await Note.findByPk(note.id, {
+    include: { model: User, as: 'notifyUsers' },
   });
-  return res.status(201).json(note);
+  return res.status(201).json(noteJson(withUsers));
 }
 
 async function update(req, res) {
