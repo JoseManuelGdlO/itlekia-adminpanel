@@ -66,6 +66,9 @@ describe('backfillBoardColumns', () => {
     const project = await Project.create({ name: 'Legacy status project' });
     await seedDefaultColumns(project.id);
     const queryInterface = sequelize.getQueryInterface();
+    const addColumnSpy = jest.spyOn(queryInterface, 'addColumn');
+    const changeColumnSpy = jest.spyOn(queryInterface, 'changeColumn');
+    const addConstraintSpy = jest.spyOn(queryInterface, 'addConstraint');
 
     await queryInterface.removeColumn('Tasks', 'columnId');
     await queryInterface.addColumn('Tasks', 'status', {
@@ -81,10 +84,29 @@ describe('backfillBoardColumns', () => {
     );
 
     await backfillBoardColumns();
+    await backfillBoardColumns();
 
     const table = await queryInterface.describeTable('Tasks');
     expect(table.columnId).toBeDefined();
     expect(table.columnId.allowNull).toBe(false);
+    expect(addColumnSpy).toHaveBeenCalledWith(
+      'Tasks',
+      'columnId',
+      expect.not.objectContaining({ references: expect.anything() })
+    );
+    expect(changeColumnSpy).toHaveBeenCalledWith(
+      'Tasks',
+      'columnId',
+      expect.not.objectContaining({ references: expect.anything() })
+    );
+    expect(addConstraintSpy).toHaveBeenCalledTimes(1);
+    expect(addConstraintSpy).toHaveBeenCalledWith('Tasks', {
+      fields: ['columnId'],
+      type: 'foreign key',
+      name: 'tasks_column_id_fk',
+      references: { table: 'BoardColumns', field: 'id' },
+      onDelete: 'RESTRICT',
+    });
     const [rows] = await sequelize.query(
       `SELECT c.name
        FROM Tasks t

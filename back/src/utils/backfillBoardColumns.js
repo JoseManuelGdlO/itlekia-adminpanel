@@ -8,6 +8,7 @@ const SLUG_TO_NAME = {
   review: 'Review',
   done: 'Done',
 };
+const TASK_COLUMN_FOREIGN_KEY = 'tasks_column_id_fk';
 
 function columnNameForStatus(slug) {
   return SLUG_TO_NAME[slug] || 'To Do';
@@ -30,6 +31,26 @@ async function mapActivitySlugs() {
   }
 }
 
+async function ensureTaskColumnForeignKey(queryInterface) {
+  const foreignKeys = await queryInterface.getForeignKeyReferencesForTable('Tasks');
+  const exists = foreignKeys.some(
+    (foreignKey) =>
+      foreignKey.constraintName === TASK_COLUMN_FOREIGN_KEY ||
+      (foreignKey.columnName === 'columnId' &&
+        foreignKey.referencedTableName === 'BoardColumns' &&
+        foreignKey.referencedColumnName === 'id')
+  );
+  if (exists) return;
+
+  await queryInterface.addConstraint('Tasks', {
+    fields: ['columnId'],
+    type: 'foreign key',
+    name: TASK_COLUMN_FOREIGN_KEY,
+    references: { table: 'BoardColumns', field: 'id' },
+    onDelete: 'RESTRICT',
+  });
+}
+
 async function backfillBoardColumns() {
   const queryInterface = sequelize.getQueryInterface();
   let taskColumns = await queryInterface.describeTable('Tasks');
@@ -37,8 +58,6 @@ async function backfillBoardColumns() {
     await queryInterface.addColumn('Tasks', 'columnId', {
       type: DataTypes.INTEGER,
       allowNull: true,
-      references: { model: 'BoardColumns', key: 'id' },
-      onDelete: 'RESTRICT',
     });
     taskColumns = await queryInterface.describeTable('Tasks');
   }
@@ -81,13 +100,14 @@ async function backfillBoardColumns() {
   }
 
   if (taskColumns.columnId.allowNull !== false) {
+    // Keep the FK separate: MySQL Sequelize emits only ADD FOREIGN KEY when
+    // references are included here, so the column would remain nullable.
     await queryInterface.changeColumn('Tasks', 'columnId', {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: 'BoardColumns', key: 'id' },
-      onDelete: 'RESTRICT',
     });
   }
+  await ensureTaskColumnForeignKey(queryInterface);
 
   const activityColumns = await queryInterface.describeTable('TaskActivities');
   for (const name of ['fromStatus', 'toStatus']) {
