@@ -3,6 +3,7 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { sequelize, User, Project, Task, ProjectMember } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
+const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 
 describe('project members routes', () => {
   let adminCookie;
@@ -11,6 +12,7 @@ describe('project members routes', () => {
   let project;
   let developer;
   let outsider;
+  let todoCol;
 
   beforeAll(async () => {
     await sequelize.sync({ force: true });
@@ -21,8 +23,14 @@ describe('project members routes', () => {
     developerCookie = `token=${signToken({ id: developer.id, role: 'developer' })}`;
     outsiderCookie = `token=${signToken({ id: outsider.id, role: 'developer' })}`;
     project = await Project.create({ name: 'Website Revamp' });
+    [todoCol] = await seedDefaultColumns(project.id);
     await ProjectMember.create({ projectId: project.id, userId: developer.id });
-    await Task.create({ projectId: project.id, title: 'Keep me', assigneeId: developer.id });
+    await Task.create({
+      projectId: project.id,
+      title: 'Keep me',
+      assigneeId: developer.id,
+      columnId: todoCol.id,
+    });
   });
 
   afterAll(async () => {
@@ -85,6 +93,7 @@ describe('project members routes', () => {
       projectId: project.id,
       title: 'Preserved after membership removal',
       assigneeId: removedDeveloper.id,
+      columnId: todoCol.id,
     });
 
     const del = await request(app)

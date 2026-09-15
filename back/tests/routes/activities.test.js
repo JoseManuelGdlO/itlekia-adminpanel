@@ -3,6 +3,7 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { sequelize, User, Project, Task, ProjectMember } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
+const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 
 describe('task activities routes', () => {
   let adminCookie;
@@ -20,6 +21,7 @@ describe('task activities routes', () => {
     developerCookie = `token=${signToken({ id: developer.id, role: 'developer' })}`;
     outsiderCookie = `token=${signToken({ id: outsider.id, role: 'developer' })}`;
     project = await Project.create({ name: 'Website Revamp' });
+    await seedDefaultColumns(project.id);
     await ProjectMember.create({ projectId: project.id, userId: developer.id });
     const created = await request(app)
       .post('/tasks')
@@ -52,15 +54,15 @@ describe('task activities routes', () => {
       expect.objectContaining({
         type: 'created',
         fromStatus: null,
-        toStatus: 'todo',
+        toStatus: 'To Do',
         user: { id: expect.any(Number), name: 'Admin' },
       })
     );
     expect(res.body[1]).toEqual(
       expect.objectContaining({
         type: 'status_changed',
-        fromStatus: 'todo',
-        toStatus: 'in_progress',
+        fromStatus: 'To Do',
+        toStatus: 'In Progress',
         user: { id: expect.any(Number), name: 'Dev' },
       })
     );

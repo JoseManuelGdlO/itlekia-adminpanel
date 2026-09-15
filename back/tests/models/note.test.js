@@ -1,4 +1,5 @@
 const { sequelize, User, Project, Task, Note } = require('../../src/models');
+const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 
 describe('Note model', () => {
   let owner;
@@ -14,7 +15,12 @@ describe('Note model', () => {
       role: 'developer',
     });
     project = await Project.create({ name: 'Website Revamp' });
-    task = await Task.create({ projectId: project.id, title: 'Build homepage' });
+    const [todoCol] = await seedDefaultColumns(project.id);
+    task = await Task.create({
+      projectId: project.id,
+      title: 'Build homepage',
+      columnId: todoCol.id,
+    });
   });
 
   afterAll(async () => {

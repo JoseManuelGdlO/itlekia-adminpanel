@@ -3,6 +3,7 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { sequelize, User, Project, ProjectMember, Task, TaskActivity } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
+const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 
 describe('tasks routes', () => {
   let adminCookie;
@@ -12,6 +13,7 @@ describe('tasks routes', () => {
   let otherDeveloper;
   let project;
   let assignedTask;
+  let todoCol;
 
   beforeAll(async () => {
     await sequelize.sync({ force: true });
@@ -23,9 +25,19 @@ describe('tasks routes', () => {
     otherDeveloperCookie = `token=${signToken({ id: otherDeveloper.id, role: 'developer' })}`;
 
     project = await Project.create({ name: 'Website Revamp' });
+    [todoCol] = await seedDefaultColumns(project.id);
     await ProjectMember.create({ projectId: project.id, userId: developer.id });
-    assignedTask = await Task.create({ projectId: project.id, title: 'Build homepage', assigneeId: developer.id });
-    await Task.create({ projectId: project.id, title: 'Not assigned to dev' });
+    assignedTask = await Task.create({
+      projectId: project.id,
+      title: 'Build homepage',
+      assigneeId: developer.id,
+      columnId: todoCol.id,
+    });
+    await Task.create({
+      projectId: project.id,
+      title: 'Not assigned to dev',
+      columnId: todoCol.id,
+    });
   });
 
   afterAll(async () => {
@@ -109,7 +121,7 @@ describe('tasks routes', () => {
     const activities = await TaskActivity.findAll({ where: { taskId: res.body.id } });
     expect(activities).toHaveLength(1);
     expect(activities[0].type).toBe('created');
-    expect(activities[0].toStatus).toBe('todo');
+    expect(activities[0].toStatus).toBe('To Do');
   });
 
   it('developer cannot create a task on a project they do not belong to', async () => {
@@ -143,7 +155,7 @@ describe('tasks routes', () => {
       .set('Cookie', developerCookie)
       .send({ status: 'in_progress' });
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('in_progress');
+    expect(res.body.columnId).toBeDefined();
   });
 
   it('a different developer cannot PATCH the status of a task not assigned to them', async () => {
@@ -173,7 +185,11 @@ describe('tasks routes', () => {
   });
 
   it('admin deletes a task', async () => {
-    const toDelete = await Task.create({ projectId: project.id, title: 'Temp' });
+    const toDelete = await Task.create({
+      projectId: project.id,
+      title: 'Temp',
+      columnId: todoCol.id,
+    });
     const res = await request(app).delete(`/tasks/${toDelete.id}`).set('Cookie', adminCookie);
     expect(res.status).toBe(204);
   });

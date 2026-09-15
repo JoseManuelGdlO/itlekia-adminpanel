@@ -1,7 +1,5 @@
 const { DataTypes } = require('sequelize');
 
-const STATUSES = ['todo', 'in_progress', 'review', 'done'];
-
 module.exports = (sequelize) => {
   const TaskActivity = sequelize.define('TaskActivity', {
     taskId: { type: DataTypes.INTEGER, allowNull: false },
@@ -17,11 +15,11 @@ module.exports = (sequelize) => {
       },
     },
     fromStatus: {
-      type: DataTypes.ENUM(...STATUSES),
+      type: DataTypes.STRING,
       allowNull: true,
     },
     toStatus: {
-      type: DataTypes.ENUM(...STATUSES),
+      type: DataTypes.STRING,
       allowNull: true,
     },
   });

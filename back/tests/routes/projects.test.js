@@ -3,6 +3,7 @@ const request = require('supertest');
 const app = require('../../src/app');
 const { sequelize, User, Project, Task, ProjectMember, BoardColumn } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
+const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 
 describe('projects routes', () => {
   let adminCookie;
@@ -21,7 +22,13 @@ describe('projects routes', () => {
     memberProject = await Project.create({ name: 'Assigned Project' });
     otherProject = await Project.create({ name: 'Other Project' });
     await ProjectMember.create({ projectId: memberProject.id, userId: developer.id });
-    await Task.create({ projectId: otherProject.id, title: 'Orphan task', assigneeId: developer.id });
+    const [todoCol] = await seedDefaultColumns(otherProject.id);
+    await Task.create({
+      projectId: otherProject.id,
+      title: 'Orphan task',
+      assigneeId: developer.id,
+      columnId: todoCol.id,
+    });
   });
 
   afterAll(async () => {

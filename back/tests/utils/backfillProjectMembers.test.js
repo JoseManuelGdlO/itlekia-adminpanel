@@ -1,5 +1,6 @@
 const { sequelize, User, Project, Task, ProjectMember } = require('../../src/models');
 const { backfillProjectMembers } = require('../../src/utils/backfillProjectMembers');
+const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 
 describe('backfillProjectMembers', () => {
   beforeEach(async () => {
@@ -12,15 +13,16 @@ describe('backfillProjectMembers', () => {
 
   it('creates members from distinct task assignees and is idempotent', async () => {
     const project = await Project.create({ name: 'A' });
+    const [todoCol] = await seedDefaultColumns(project.id);
     const dev = await User.create({
       name: 'Dev',
       email: 'dev@example.com',
       passwordHash: 'x',
       role: 'developer',
     });
-    await Task.create({ projectId: project.id, title: 'One', assigneeId: dev.id });
-    await Task.create({ projectId: project.id, title: 'Two', assigneeId: dev.id });
-    await Task.create({ projectId: project.id, title: 'Unassigned' });
+    await Task.create({ projectId: project.id, title: 'One', assigneeId: dev.id, columnId: todoCol.id });
+    await Task.create({ projectId: project.id, title: 'Two', assigneeId: dev.id, columnId: todoCol.id });
+    await Task.create({ projectId: project.id, title: 'Unassigned', columnId: todoCol.id });
 
     await backfillProjectMembers();
     await backfillProjectMembers();
@@ -32,13 +34,19 @@ describe('backfillProjectMembers', () => {
 
   it('does not recreate a removed membership after the initial backfill', async () => {
     const project = await Project.create({ name: 'B' });
+    const [todoCol] = await seedDefaultColumns(project.id);
     const dev = await User.create({
       name: 'Removed Dev',
       email: 'removed@example.com',
       passwordHash: 'x',
       role: 'developer',
     });
-    await Task.create({ projectId: project.id, title: 'Keep task', assigneeId: dev.id });
+    await Task.create({
+      projectId: project.id,
+      title: 'Keep task',
+      assigneeId: dev.id,
+      columnId: todoCol.id,
+    });
 
     await backfillProjectMembers();
     const membership = await ProjectMember.findOne({

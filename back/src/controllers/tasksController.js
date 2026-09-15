@@ -1,7 +1,6 @@
-const { Task, Project, TaskActivity, User, sequelize } = require('../models');
+const { Task, Project, TaskActivity, User, BoardColumn, sequelize } = require('../models');
 const { isProjectMember, memberProjectIds } = require('../utils/projectAccess');
-
-const VALID_STATUSES = ['todo', 'in_progress', 'review', 'done'];
+const { firstColumn } = require('../utils/boardColumns');
 
 function isOwnerOrAdmin(task, user) {
   return user.role === 'admin' || task.assigneeId === user.id;
@@ -51,8 +50,13 @@ async function create(req, res) {
 
   const t = await sequelize.transaction();
   try {
+    const column = await firstColumn(project.id);
+    if (!column) {
+      await t.rollback();
+      return res.status(400).json({ error: 'Invalid column' });
+    }
     const task = await Task.create(
-      { projectId, title, description, assigneeId, dueDate },
+      { projectId, title, description, assigneeId, dueDate, columnId: column.id },
       { transaction: t }
     );
     await TaskActivity.create(
@@ -61,7 +65,7 @@ async function create(req, res) {
         userId: req.user.id,
         type: 'created',
         fromStatus: null,
-        toStatus: task.status,
+        toStatus: column.name,
       },
       { transaction: t }
     );
@@ -100,31 +104,25 @@ async function update(req, res) {
 
 async function updateStatus(req, res) {
   const task = await Task.findByPk(req.params.id);
-  if (!task) {
-    return res.status(404).json({ error: 'Task not found' });
-  }
-  if (!isOwnerOrAdmin(task, req.user)) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  const { status } = req.body;
-  if (!VALID_STATUSES.includes(status)) {
-    return res.status(400).json({ error: 'Invalid status' });
-  }
-  if (task.status === status) {
-    return res.json(task);
-  }
-  const fromStatus = task.status;
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  if (!isOwnerOrAdmin(task, req.user)) return res.status(403).json({ error: 'Forbidden' });
+  const raw = req.body.status;
+  const name = { todo: 'To Do', in_progress: 'In Progress', review: 'Review', done: 'Done' }[raw] || raw;
+  const column = await BoardColumn.findOne({ where: { projectId: task.projectId, name } });
+  if (!column) return res.status(400).json({ error: 'Invalid column' });
+  if (task.columnId === column.id) return res.json(task);
+  const from = await BoardColumn.findByPk(task.columnId);
   const t = await sequelize.transaction();
   try {
-    task.status = status;
+    task.columnId = column.id;
     await task.save({ transaction: t });
     await TaskActivity.create(
       {
         taskId: task.id,
         userId: req.user.id,
         type: 'status_changed',
-        fromStatus,
-        toStatus: status,
+        fromStatus: from ? from.name : null,
+        toStatus: column.name,
       },
       { transaction: t }
     );

@@ -1,4 +1,5 @@
 const { sequelize, User, Project, Task, TaskActivity } = require('../../src/models');
+const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 
 describe('TaskActivity model', () => {
   beforeAll(async () => {
@@ -11,13 +12,14 @@ describe('TaskActivity model', () => {
 
   it('records a created event with toStatus todo', async () => {
     const project = await Project.create({ name: 'A' });
+    const [todoCol] = await seedDefaultColumns(project.id);
     const user = await User.create({
       name: 'Dev',
       email: 'dev@example.com',
       passwordHash: 'x',
       role: 'developer',
     });
-    const task = await Task.create({ projectId: project.id, title: 'T' });
+    const task = await Task.create({ projectId: project.id, title: 'T', columnId: todoCol.id });
     const row = await TaskActivity.create({
       taskId: task.id,
       userId: user.id,
@@ -34,13 +36,14 @@ describe('TaskActivity model', () => {
 
   it('rejects an invalid type', async () => {
     const project = await Project.create({ name: 'B' });
+    const [todoCol] = await seedDefaultColumns(project.id);
     const user = await User.create({
       name: 'Dev2',
       email: 'dev2@example.com',
       passwordHash: 'x',
       role: 'developer',
     });
-    const task = await Task.create({ projectId: project.id, title: 'T2' });
+    const task = await Task.create({ projectId: project.id, title: 'T2', columnId: todoCol.id });
     await expect(
       TaskActivity.create({
         taskId: task.id,

@@ -59,6 +59,8 @@ Feature.belongsTo(User, { foreignKey: 'userId', as: 'creator' });
 
 Project.hasMany(BoardColumn, { foreignKey: 'projectId', as: 'boardColumns' });
 BoardColumn.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+BoardColumn.hasMany(Task, { foreignKey: 'columnId', as: 'tasks' });
+Task.belongsTo(BoardColumn, { foreignKey: 'columnId', as: 'column' });
 
 module.exports = {
   sequelize,
