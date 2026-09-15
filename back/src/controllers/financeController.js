@@ -104,6 +104,8 @@ async function update(req, res) {
   if (!project) return;
   const item = await loadItem(req, res, project);
   if (!item) return;
+  let oldStoredName;
+  let newStoredName;
   if (req.body.kind !== undefined) {
     if (!KINDS.includes(req.body.kind)) {
       return res.status(400).json({ error: 'Invalid kind' });
@@ -120,7 +122,7 @@ async function update(req, res) {
     item.amount = amount;
   }
   if (req.file) {
-    const oldStoredName = item.storedName;
+    oldStoredName = item.storedName;
     const pendingStoredName = financeStoredName(item.id, req.file.originalname);
     let saved;
     try {
@@ -129,14 +131,20 @@ async function update(req, res) {
       removeFinanceFile(pendingStoredName);
       throw error;
     }
-    if (oldStoredName !== saved.storedName) {
-      removeFinanceFile(oldStoredName);
-    }
+    newStoredName = saved.storedName;
     item.fileName = saved.fileName;
     item.storedName = saved.storedName;
     item.mimeType = saved.mimeType;
   }
-  await item.save();
+  try {
+    await item.save();
+  } catch (error) {
+    removeFinanceFile(newStoredName);
+    throw error;
+  }
+  if (oldStoredName !== newStoredName) {
+    removeFinanceFile(oldStoredName);
+  }
   return res.json(toPublicFinanceItem(item));
 }
 

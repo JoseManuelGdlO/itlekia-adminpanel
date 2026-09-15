@@ -319,4 +319,37 @@ describe('finance routes', () => {
     expect(downloaded.status).toBe(200);
     expect(downloaded.body).toEqual(oldContents);
   });
+
+  it('keeps the old file downloadable when saving replacement metadata fails', async () => {
+    const oldContents = Buffer.from('%PDF original');
+    const created = await request(app)
+      .post(`/projects/${project.id}/finance`)
+      .set('Cookie', adminCookie)
+      .field('kind', 'contract')
+      .field('title', 'Failed replacement save')
+      .field('amount', '100')
+      .attach('file', oldContents, { filename: 'original.pdf', contentType: 'application/pdf' });
+    const before = await FinanceItem.findByPk(created.body.id);
+    const oldPath = path.join(process.env.FINANCE_UPLOAD_DIR, before.storedName);
+    const saveSpy = jest.spyOn(FinanceItem.prototype, 'save').mockRejectedValueOnce(new Error('database save failed'));
+
+    const response = await request(app)
+      .put(`/projects/${project.id}/finance/${created.body.id}`)
+      .set('Cookie', adminCookie)
+      .attach('file', Buffer.from('replacement image'), {
+        filename: 'replacement.png',
+        contentType: 'image/png',
+      });
+    saveSpy.mockRestore();
+
+    expect(response.status).toBe(500);
+    expect(fs.existsSync(oldPath)).toBe(true);
+
+    const downloaded = await request(app)
+      .get(`/projects/${project.id}/finance/${created.body.id}/file`)
+      .set('Cookie', adminCookie)
+      .buffer(true);
+    expect(downloaded.status).toBe(200);
+    expect(downloaded.body).toEqual(oldContents);
+  });
 });
