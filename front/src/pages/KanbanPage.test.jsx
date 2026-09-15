@@ -7,6 +7,41 @@ import * as tasksApi from '../api/tasks';
 import * as projectsApi from '../api/projects';
 import * as columnsApi from '../api/columns';
 
+const dnd = vi.hoisted(() => ({
+  dragEnd: null,
+  useDraggable: vi.fn(({ disabled }) => ({
+    attributes: disabled ? {} : { role: 'button', tabIndex: 0 },
+    listeners: {},
+    setNodeRef: vi.fn(),
+    transform: null,
+  })),
+  useSortable: vi.fn(() => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: vi.fn(),
+    transform: null,
+    transition: undefined,
+    isOver: false,
+  })),
+}));
+
+vi.mock('@dnd-kit/core', () => ({
+  DndContext: ({ children, onDragEnd }) => {
+    dnd.dragEnd = onDragEnd;
+    return children;
+  },
+  useDraggable: dnd.useDraggable,
+}));
+
+vi.mock('@dnd-kit/sortable', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    SortableContext: ({ children }) => children,
+    useSortable: dnd.useSortable,
+  };
+});
+
 const defaultColumns = [
   { id: 11, name: 'To Do', position: 0, projectId: 1 },
   { id: 12, name: 'In Progress', position: 1, projectId: 1 },
@@ -68,6 +103,73 @@ describe('KanbanPage', () => {
     expect(screen.getByText('In Progress')).toBeInTheDocument();
     expect(screen.getByText('Review')).toBeInTheDocument();
     expect(screen.getByText('Done')).toBeInTheDocument();
+  });
+
+  it('namespaces equal task and column ids so both render as distinct draggables', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([
+      { id: 11, title: 'Matching id card', columnId: 11, projectId: 1, assigneeId: 1 },
+    ]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([{ id: 1, name: 'Project Alpha' }]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValueOnce([defaultColumns[0]]);
+
+    renderAs('admin');
+
+    expect(await screen.findByRole('link', { name: 'Matching id card' })).toBeInTheDocument();
+    expect(dnd.useSortable).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'column:11',
+      data: { type: 'column' },
+    }));
+    expect(dnd.useDraggable).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'task:11',
+      data: { type: 'task' },
+    }));
+  });
+
+  it('moves a namespaced task to a namespaced column using numeric API ids', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([
+      { id: 11, title: 'Matching id card', columnId: 11, projectId: 1, assigneeId: 1 },
+    ]);
+    vi.spyOn(tasksApi, 'updateTaskColumn').mockResolvedValueOnce({});
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([{ id: 1, name: 'Project Alpha' }]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValueOnce(defaultColumns.slice(0, 2));
+
+    renderAs('admin');
+    await screen.findByRole('link', { name: 'Matching id card' });
+
+    await act(async () => {
+      await dnd.dragEnd({
+        active: { id: 'task:11', data: { current: { type: 'task' } } },
+        over: { id: 'column:12' },
+      });
+    });
+
+    expect(tasksApi.updateTaskColumn).toHaveBeenCalledWith(11, 12);
+  });
+
+  it('rewrites optimistic column positions after reordering', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([
+      { id: 1, title: 'Positioned card', columnId: 11, projectId: 1, assigneeId: 1 },
+    ]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([{ id: 1, name: 'Project Alpha' }]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValueOnce(defaultColumns.slice(0, 2));
+    vi.spyOn(columnsApi, 'reorderColumns').mockResolvedValueOnce([]);
+
+    renderAs('admin');
+    const cardLink = await screen.findByRole('link', { name: 'Positioned card' });
+    expect(cardLink.previousElementSibling).toHaveClass('bg-muted-foreground');
+
+    await act(async () => {
+      await dnd.dragEnd({
+        active: { id: 'column:11', data: { current: { type: 'column' } } },
+        over: { id: 'column:12' },
+      });
+    });
+
+    expect(columnsApi.reorderColumns).toHaveBeenCalledWith('1', [12, 11]);
+    expect(cardLink.previousElementSibling).toHaveClass('bg-primary');
   });
 
   it('lets a developer pick a project via tabs', async () => {
@@ -221,6 +323,30 @@ describe('KanbanPage', () => {
     fireEvent.submit(screen.getByLabelText('Nombre de columna').closest('form'));
     await waitFor(() => expect(columnsApi.createColumn).toHaveBeenCalledWith('1', { name: 'Blocked' }));
     expect(await screen.findByText('Blocked')).toBeInTheDocument();
+  });
+
+  it('lets an admin rename a column inline', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha' }]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([defaultColumns[0]]);
+    vi.spyOn(columnsApi, 'updateColumn').mockResolvedValue({
+      ...defaultColumns[0],
+      name: 'Backlog',
+    });
+
+    renderAs('admin');
+    fireEvent.click(await screen.findByRole('button', { name: 'To Do' }));
+    const input = screen.getByLabelText('Renombrar To Do');
+    fireEvent.change(input, { target: { value: 'Backlog' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => expect(columnsApi.updateColumn).toHaveBeenCalledWith(
+      '1',
+      11,
+      { name: 'Backlog' },
+    ));
+    expect(await screen.findByRole('button', { name: 'Backlog' })).toBeInTheDocument();
   });
 
   it('does not show + Columna to a developer', async () => {

@@ -5,7 +5,8 @@ const DOTS = ['bg-muted-foreground', 'bg-primary', 'bg-rail', 'bg-teal-soft'];
 
 export default function TaskCard({ task, columnPosition, draggable = true }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: String(task.id),
+    id: `task:${task.id}`,
+    data: { type: 'task' },
     disabled: !draggable,
   });
 

@@ -18,7 +18,7 @@ export default function KanbanColumn({
   const [name, setName] = useState(column.name);
   const [error, setError] = useState('');
   const { attributes, listeners, setNodeRef, transform, transition, isOver } = useSortable({
-    id: String(column.id),
+    id: `column:${column.id}`,
     data: { type: 'column' },
     disabled: { draggable: !isAdmin },
   });

@@ -68,12 +68,23 @@ export default function KanbanPage() {
     if (!over) return;
 
     if (active.data.current?.type === 'column') {
-      const oldIndex = columns.findIndex((column) => String(column.id) === String(active.id));
-      const newIndex = columns.findIndex((column) => String(column.id) === String(over.id));
+      const activeColumnId = String(active.id).startsWith('column:')
+        ? String(active.id).slice('column:'.length)
+        : null;
+      const overColumnId = String(over.id).startsWith('column:')
+        ? String(over.id).slice('column:'.length)
+        : null;
+      if (!activeColumnId || !overColumnId) return;
+
+      const oldIndex = columns.findIndex((column) => String(column.id) === activeColumnId);
+      const newIndex = columns.findIndex((column) => String(column.id) === overColumnId);
       if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
 
       const projectId = selectedProjectId;
-      const next = arrayMove(columns, oldIndex, newIndex);
+      const next = arrayMove(columns, oldIndex, newIndex).map((column, position) => ({
+        ...column,
+        position,
+      }));
       setColumns(next);
       try {
         await columnsApi.reorderColumns(projectId, next.map((column) => column.id));
@@ -84,9 +95,15 @@ export default function KanbanPage() {
       return;
     }
 
-    const taskId = Number(active.id);
-    const newColumnId = Number(over.id);
+    if (active.data.current?.type !== 'task') return;
+    if (!String(active.id).startsWith('task:') || !String(over.id).startsWith('column:')) return;
+
+    const taskId = Number(String(active.id).slice('task:'.length));
+    const newColumnId = Number(String(over.id).slice('column:'.length));
+    if (!Number.isFinite(taskId) || !Number.isFinite(newColumnId)) return;
+
     const previousColumnId = tasks.find((task) => task.id === taskId)?.columnId;
+    if (previousColumnId === undefined) return;
 
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, columnId: newColumnId } : t)));
 
@@ -175,7 +192,7 @@ export default function KanbanPage() {
       )}
       <DndContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto">
-          <SortableContext items={columns.map((column) => String(column.id))}>
+          <SortableContext items={columns.map((column) => `column:${column.id}`)}>
             {columns.map((column) => (
               <KanbanColumn
                 key={column.id}
