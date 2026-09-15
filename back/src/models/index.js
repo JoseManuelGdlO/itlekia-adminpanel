@@ -11,6 +11,7 @@ const Note = require('./note')(sequelize);
 const ProjectMember = require('./projectMember')(sequelize);
 const TaskActivity = require('./taskActivity')(sequelize);
 const FinanceItem = require('./financeItem')(sequelize);
+const Feature = require('./feature')(sequelize);
 
 Project.hasMany(Task, { foreignKey: 'projectId', as: 'tasks' });
 Task.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
@@ -50,6 +51,11 @@ FinanceItem.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
 User.hasMany(FinanceItem, { foreignKey: 'createdBy', as: 'financeItems' });
 FinanceItem.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 
+Project.hasMany(Feature, { foreignKey: 'projectId', as: 'features' });
+Feature.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+User.hasMany(Feature, { foreignKey: 'userId', as: 'features' });
+Feature.belongsTo(User, { foreignKey: 'userId', as: 'creator' });
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -60,4 +66,5 @@ module.exports = {
   ProjectMember,
   TaskActivity,
   FinanceItem,
+  Feature,
 };
