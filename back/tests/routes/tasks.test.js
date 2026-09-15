@@ -12,6 +12,7 @@ const {
 } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
 const { seedDefaultColumns } = require('../../src/utils/boardColumns');
+const mailer = require('../../src/utils/mailer');
 
 describe('tasks routes', () => {
   let adminCookie;
@@ -156,6 +157,61 @@ describe('tasks routes', () => {
     expect(activities).toHaveLength(1);
     expect(activities[0].type).toBe('created');
     expect(activities[0].toStatus).toBe('To Do');
+  });
+
+  it('emails the assignee on create and not when unassigned', async () => {
+    const spy = jest.spyOn(mailer, 'sendTaskAssignedEmail').mockResolvedValue();
+    const assigned = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Paged', assigneeId: developer.id });
+    expect(assigned.status).toBe(201);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0].to).toBe('dev@example.com');
+    spy.mockClear();
+    const open = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Unassigned' });
+    expect(open.status).toBe(201);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('emails only when PUT changes the assignee', async () => {
+    await ProjectMember.findOrCreate({
+      where: { projectId: project.id, userId: otherDeveloper.id },
+    });
+    const spy = jest.spyOn(mailer, 'sendTaskAssignedEmail').mockResolvedValue();
+    const same = await request(app)
+      .put(`/tasks/${assignedTask.id}`)
+      .set('Cookie', adminCookie)
+      .send({ assigneeId: developer.id });
+    expect(same.status).toBe(200);
+    expect(spy).not.toHaveBeenCalled();
+    const changed = await request(app)
+      .put(`/tasks/${assignedTask.id}`)
+      .set('Cookie', adminCookie)
+      .send({ assigneeId: otherDeveloper.id });
+    expect(changed.status).toBe(200);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0].to).toBe('dev2@example.com');
+    await Task.update(
+      { assigneeId: developer.id },
+      { where: { id: assignedTask.id } }
+    );
+    spy.mockRestore();
+  });
+
+  it('still creates the task when assignment email throws', async () => {
+    const spy = jest.spyOn(mailer, 'sendTaskAssignedEmail').mockRejectedValue(new Error('smtp down'));
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Mail fail', assigneeId: developer.id });
+    expect(res.status).toBe(201);
+    expect(res.body.title).toBe('Mail fail');
+    spy.mockRestore();
   });
 
   it('developer cannot create a task on a project they do not belong to', async () => {

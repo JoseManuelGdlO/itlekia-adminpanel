@@ -30,4 +30,27 @@ async function sendReminderEmail({ to, note }) {
   });
 }
 
-module.exports = { sendReminderEmail, __setTransporterForTests };
+async function sendTaskAssignedEmail({ to, task, project, assigner }) {
+  if (!process.env.SMTP_HOST) {
+    console.error('SMTP_HOST unset; skip assignment email');
+    return;
+  }
+  const lines = [
+    `Proyecto: ${project.name}`,
+    `Asignado por: ${assigner.name}`,
+    `Tarea: ${task.title}`,
+  ];
+  const base = process.env.FRONTEND_URL;
+  if (base) {
+    lines.push(`Enlace: ${base.replace(/\/$/, '')}/tasks/${task.id}`);
+  }
+  const client = getTransporter();
+  await client.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject: `Nueva tarea: ${task.title}`,
+    text: lines.join('\n'),
+  });
+}
+
+module.exports = { sendReminderEmail, sendTaskAssignedEmail, __setTransporterForTests };

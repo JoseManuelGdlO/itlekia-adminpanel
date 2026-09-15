@@ -1,4 +1,4 @@
-const { sendReminderEmail, __setTransporterForTests } = require('../../src/utils/mailer');
+const { sendReminderEmail, sendTaskAssignedEmail, __setTransporterForTests } = require('../../src/utils/mailer');
 
 describe('mailer', () => {
   it('sends a reminder email with the note title in the subject', async () => {
@@ -16,5 +16,52 @@ describe('mailer', () => {
         subject: expect.stringContaining('Ping client'),
       })
     );
+  });
+});
+
+describe('sendTaskAssignedEmail', () => {
+  const originalHost = process.env.SMTP_HOST;
+  const originalFront = process.env.FRONTEND_URL;
+
+  afterEach(() => {
+    process.env.SMTP_HOST = originalHost;
+    process.env.FRONTEND_URL = originalFront;
+  });
+
+  it('sends subject and link when SMTP and FRONTEND_URL are set', async () => {
+    process.env.SMTP_HOST = 'smtp.example.com';
+    process.env.FRONTEND_URL = 'https://app.example.com';
+    const sendMail = jest.fn().mockResolvedValue({});
+    __setTransporterForTests({ sendMail });
+
+    await sendTaskAssignedEmail({
+      to: 'dev@example.com',
+      task: { id: 9, title: 'Fix nav' },
+      project: { name: 'Website Revamp' },
+      assigner: { name: 'Ada' },
+    });
+
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'dev@example.com',
+        subject: 'Nueva tarea: Fix nav',
+        text: expect.stringContaining('https://app.example.com/tasks/9'),
+      })
+    );
+    expect(sendMail.mock.calls[0][0].text).toContain('Website Revamp');
+    expect(sendMail.mock.calls[0][0].text).toContain('Ada');
+  });
+
+  it('skips sendMail when SMTP_HOST is unset', async () => {
+    delete process.env.SMTP_HOST;
+    const sendMail = jest.fn();
+    __setTransporterForTests({ sendMail });
+    await sendTaskAssignedEmail({
+      to: 'dev@example.com',
+      task: { id: 1, title: 'T' },
+      project: { name: 'P' },
+      assigner: { name: 'A' },
+    });
+    expect(sendMail).not.toHaveBeenCalled();
   });
 });

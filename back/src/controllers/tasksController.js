@@ -2,6 +2,7 @@ const { Task, Project, TaskActivity, User, BoardColumn, sequelize } = require('.
 const { isProjectMember, memberProjectIds } = require('../utils/projectAccess');
 const { firstColumn } = require('../utils/boardColumns');
 const { sanitizeDescription } = require('../utils/sanitizeDescription');
+const mailer = require('../utils/mailer');
 
 function isOwnerOrAdmin(task, user) {
   return user.role === 'admin' || task.assigneeId === user.id;
@@ -24,6 +25,26 @@ async function assertAssigneeMember(assigneeId, projectId) {
   const ok = await isProjectMember(assigneeId, projectId);
   if (!ok) return { error: 'Invalid assignee' };
   return null;
+}
+
+async function notifyNewAssignee(task, assigner) {
+  if (!task.assigneeId) return;
+  try {
+    const [assignee, project, actor] = await Promise.all([
+      User.findByPk(task.assigneeId),
+      Project.findByPk(task.projectId),
+      User.findByPk(assigner.id),
+    ]);
+    if (!assignee || !project || !actor) return;
+    await mailer.sendTaskAssignedEmail({
+      to: assignee.email,
+      task,
+      project,
+      assigner: { name: actor.name, id: actor.id },
+    });
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 async function list(req, res) {
@@ -104,6 +125,7 @@ async function create(req, res) {
       { transaction: t }
     );
     await t.commit();
+    await notifyNewAssignee(task, req.user);
     return res.status(201).json(task);
   } catch (err) {
     await t.rollback();
@@ -116,6 +138,7 @@ async function update(req, res) {
   if (!task) {
     return res.status(404).json({ error: 'Task not found' });
   }
+  const previousAssigneeId = task.assigneeId;
 
   if (!isOwnerOrAdmin(task, req.user)) {
     return res.status(403).json({ error: 'Forbidden' });
@@ -158,6 +181,12 @@ async function update(req, res) {
   }
 
   await task.save();
+  if (
+    task.assigneeId != null
+    && Number(task.assigneeId) !== Number(previousAssigneeId)
+  ) {
+    await notifyNewAssignee(task, req.user);
+  }
   return res.json(task);
 }
 
