@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import * as notesApi from '../../api/notes';
+import * as notifyUsersApi from '../../api/notifyUsers';
 import * as projectsApi from '../../api/projects';
 import * as tasksApi from '../../api/tasks';
+import NotifyUserPicker from './NotifyUserPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +22,7 @@ export default function NoteFormModal({ projectId, taskId, onCreated }) {
   // ProjectDetailPage/TaskDetailPage), keep the existing fixed behavior and
   // never show a picker. The picker only appears on the standalone Notes page.
   const isScoped = projectId != null || taskId != null;
+  const { user } = useAuth();
 
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -29,6 +33,8 @@ export default function NoteFormModal({ projectId, taskId, onCreated }) {
   const [linkedTaskId, setLinkedTaskId] = useState('');
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [notifyUsers, setNotifyUsers] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   // Fetch the project/task lists lazily, only when the dialog is opened and
   // only when there's an actual picker to fill in.
@@ -38,6 +44,48 @@ export default function NoteFormModal({ projectId, taskId, onCreated }) {
       tasksApi.listTasks().then(setTasks).catch(() => {});
     }
   }, [open, isScoped]);
+
+  useEffect(() => {
+    if (!isReminder) {
+      setNotifyUsers([]);
+      setSelectedIds([]);
+      return;
+    }
+
+    const memberProjectId = projectId ?? (linkedProjectId || null);
+    const memberTaskId = taskId ?? (linkedTaskId || null);
+    let ignore = false;
+
+    async function loadCandidates() {
+      let users = [];
+      if (memberProjectId) {
+        users = await projectsApi.listMembers(memberProjectId);
+      } else if (memberTaskId) {
+        const allTasks = await tasksApi.listTasks();
+        const task = allTasks.find((t) => String(t.id) === String(memberTaskId));
+        if (task?.projectId) {
+          users = await projectsApi.listMembers(task.projectId);
+        }
+      } else {
+        users = await notifyUsersApi.listNotifyUsers();
+      }
+      if (!ignore) {
+        setNotifyUsers(users.filter((u) => String(u.id) !== String(user.id)));
+        setSelectedIds([]);
+      }
+    }
+
+    loadCandidates().catch(() => {});
+    return () => {
+      ignore = true;
+    };
+  }, [isReminder, projectId, taskId, linkedProjectId, linkedTaskId, user.id]);
+
+  function handleToggle(id) {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
+    );
+  }
 
   function handleProjectChange(value) {
     setLinkedProjectId(value);
@@ -58,6 +106,7 @@ export default function NoteFormModal({ projectId, taskId, onCreated }) {
       taskId: isScoped ? taskId : linkedTaskId || undefined,
       isReminder,
       remindAt: isReminder ? remindAt : undefined,
+      notifyUserIds: isReminder ? selectedIds : [],
     });
     onCreated(created);
     setOpen(false);
@@ -67,6 +116,8 @@ export default function NoteFormModal({ projectId, taskId, onCreated }) {
     setRemindAt('');
     setLinkedProjectId('');
     setLinkedTaskId('');
+    setNotifyUsers([]);
+    setSelectedIds([]);
   }
 
   return (
@@ -131,16 +182,19 @@ export default function NoteFormModal({ projectId, taskId, onCreated }) {
             <Label htmlFor="note-is-reminder">Convertir en recordatorio</Label>
           </div>
           {isReminder && (
-            <div>
-              <Label htmlFor="note-remind-at">Fecha y hora</Label>
-              <Input
-                id="note-remind-at"
-                type="datetime-local"
-                value={remindAt}
-                onChange={(e) => setRemindAt(e.target.value)}
-                required
-              />
-            </div>
+            <>
+              <div>
+                <Label htmlFor="note-remind-at">Fecha y hora</Label>
+                <Input
+                  id="note-remind-at"
+                  type="datetime-local"
+                  value={remindAt}
+                  onChange={(e) => setRemindAt(e.target.value)}
+                  required
+                />
+              </div>
+              <NotifyUserPicker users={notifyUsers} selectedIds={selectedIds} onToggle={handleToggle} />
+            </>
           )}
           <Button type="submit">Guardar</Button>
         </form>

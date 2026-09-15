@@ -19,6 +19,11 @@ export default function NotesList({ notes, onDelete }) {
                 Recordatorio: {new Date(note.remindAt).toLocaleString()}
               </Badge>
             )}
+            {note.notifyUsers?.length ? (
+              <p className="text-xs text-muted-foreground">
+                También: {note.notifyUsers.map((u) => u.name).join(', ')}
+              </p>
+            ) : null}
           </div>
           <Button variant="destructive" size="sm" onClick={() => onDelete(note.id)}>
             Eliminar

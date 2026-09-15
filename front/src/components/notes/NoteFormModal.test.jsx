@@ -1,20 +1,34 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
+import { AuthContext } from '../../context/AuthContext';
 import NoteFormModal from './NoteFormModal';
 import * as notesApi from '../../api/notes';
 import * as projectsApi from '../../api/projects';
 import * as tasksApi from '../../api/tasks';
+import * as notifyUsersApi from '../../api/notifyUsers';
+
+const defaultUser = { id: 1, name: 'Me', role: 'developer' };
+
+function renderModal(ui, { user = defaultUser } = {}) {
+  return render(
+    <AuthContext.Provider value={{ user, loading: false }}>
+      {ui}
+    </AuthContext.Provider>
+  );
+}
 
 describe('NoteFormModal', () => {
   beforeEach(() => {
     // Default to empty lists so the lazily-fetched picker never hits a real
     // network call unless a test explicitly overrides these.
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
+    vi.spyOn(notifyUsersApi, 'listNotifyUsers').mockResolvedValue([]);
   });
 
   it('does not reveal the form fields until the trigger opens the Dialog', async () => {
-    render(<NoteFormModal onCreated={vi.fn()} />);
+    renderModal(<NoteFormModal onCreated={vi.fn()} />);
 
     expect(screen.queryByLabelText('Título')).not.toBeInTheDocument();
 
@@ -26,7 +40,7 @@ describe('NoteFormModal', () => {
   });
 
   it('reveals the datetime input only when the reminder checkbox is checked', async () => {
-    render(<NoteFormModal onCreated={vi.fn()} />);
+    renderModal(<NoteFormModal onCreated={vi.fn()} />);
 
     await act(async () => {
       screen.getByText('Nueva nota').click();
@@ -51,7 +65,7 @@ describe('NoteFormModal', () => {
     vi.spyOn(notesApi, 'createNote').mockResolvedValueOnce({ id: 5, title: 'New note', isReminder: false });
     const onCreated = vi.fn();
 
-    render(<NoteFormModal onCreated={onCreated} />);
+    renderModal(<NoteFormModal onCreated={onCreated} />);
 
     await act(async () => {
       screen.getByText('Nueva nota').click();
@@ -81,7 +95,7 @@ describe('NoteFormModal', () => {
     vi.spyOn(notesApi, 'createNote').mockResolvedValueOnce({ id: 6, title: 'Ping client', isReminder: true });
     const onCreated = vi.fn();
 
-    render(<NoteFormModal projectId={2} taskId={3} onCreated={onCreated} />);
+    renderModal(<NoteFormModal projectId={2} taskId={3} onCreated={onCreated} />);
 
     await act(async () => {
       screen.getByText('Nueva nota').click();
@@ -112,7 +126,7 @@ describe('NoteFormModal', () => {
   });
 
   it('does not render the project/task picker when scoped to a fixed projectId or taskId', async () => {
-    render(<NoteFormModal projectId={2} onCreated={vi.fn()} />);
+    renderModal(<NoteFormModal projectId={2} onCreated={vi.fn()} />);
 
     await act(async () => {
       screen.getByText('Nueva nota').click();
@@ -133,7 +147,7 @@ describe('NoteFormModal', () => {
     vi.spyOn(notesApi, 'createNote').mockResolvedValueOnce({ id: 9, title: 'Linked note', isReminder: false });
     const onCreated = vi.fn();
 
-    render(<NoteFormModal onCreated={onCreated} />);
+    renderModal(<NoteFormModal onCreated={onCreated} />);
 
     await act(async () => {
       screen.getByText('Nueva nota').click();
@@ -171,7 +185,7 @@ describe('NoteFormModal', () => {
     projectsApi.listProjects.mockResolvedValueOnce([{ id: 7, name: 'Website Revamp' }]);
     tasksApi.listTasks.mockResolvedValueOnce([{ id: 12, title: 'Fix nav bug' }]);
 
-    render(<NoteFormModal onCreated={vi.fn()} />);
+    renderModal(<NoteFormModal onCreated={vi.fn()} />);
 
     await act(async () => {
       screen.getByText('Nueva nota').click();
@@ -190,5 +204,61 @@ describe('NoteFormModal', () => {
 
     expect(screen.getByLabelText('Vincular a tarea (opcional)').value).toBe('12');
     expect(screen.getByLabelText('Vincular a proyecto (opcional)').value).toBe('');
+  });
+
+  it('shows extra recipients and sends notifyUserIds on a standalone reminder', async () => {
+    notifyUsersApi.listNotifyUsers.mockResolvedValue([{ id: 2, name: 'Ada' }]);
+    vi.spyOn(notesApi, 'createNote').mockResolvedValueOnce({ id: 10, title: 'Ping', isReminder: true });
+    const onCreated = vi.fn();
+
+    renderModal(<NoteFormModal onCreated={onCreated} />);
+
+    await act(async () => {
+      screen.getByText('Nueva nota').click();
+    });
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Ping' } });
+      fireEvent.change(screen.getByLabelText('Contenido'), { target: { value: 'follow up' } });
+      fireEvent.click(screen.getByLabelText('Convertir en recordatorio'));
+    });
+
+    expect(await screen.findByText('Avisar también a')).toBeInTheDocument();
+    expect(screen.getByLabelText('Ada')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText('Ada'));
+      fireEvent.change(screen.getByLabelText('Fecha y hora'), { target: { value: '2026-09-20T10:00' } });
+      screen.getByText('Guardar').click();
+    });
+
+    expect(notesApi.createNote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isReminder: true,
+        notifyUserIds: [2],
+      })
+    );
+  });
+
+  it('omits the current user from the project member picker', async () => {
+    projectsApi.listMembers.mockResolvedValue([
+      { id: 1, name: 'Me' },
+      { id: 2, name: 'Ada' },
+    ]);
+
+    renderModal(<NoteFormModal projectId={7} onCreated={vi.fn()} />, {
+      user: { id: 1, name: 'Me', role: 'developer' },
+    });
+
+    await act(async () => {
+      screen.getByText('Nueva nota').click();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText('Convertir en recordatorio'));
+    });
+
+    expect(await screen.findByLabelText('Ada')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Me')).not.toBeInTheDocument();
   });
 });
