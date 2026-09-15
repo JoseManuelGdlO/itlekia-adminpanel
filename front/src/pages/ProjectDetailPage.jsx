@@ -5,11 +5,14 @@ import * as notesApi from '../api/notes';
 import NotesList from '../components/notes/NotesList';
 import NoteFormModal from '../components/notes/NoteFormModal';
 import ProjectMembersCard from '../components/projects/ProjectMembersCard';
+import ProjectFinanceCard from '../components/projects/ProjectFinanceCard';
 import PageSkeleton from '../components/PageSkeleton';
+import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [project, setProject] = useState(null);
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +53,7 @@ export default function ProjectDetailPage() {
         <p className="text-sm text-muted-foreground">{project.description}</p>
       </div>
       <ProjectMembersCard projectId={project.id} />
+      {user.role === 'admin' && <ProjectFinanceCard projectId={project.id} />}
       <Card className="shadow-card">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Notas del proyecto</CardTitle>
