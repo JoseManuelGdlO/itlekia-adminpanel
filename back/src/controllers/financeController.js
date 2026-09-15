@@ -1,5 +1,11 @@
 const { Project, FinanceItem } = require('../models');
-const { saveFinanceFile, removeFinanceFile, financeFilePath } = require('../utils/financeFiles');
+const {
+  financeStoredName,
+  saveFinanceFile,
+  removeFinanceFile,
+  financeFilePath,
+  financeFileExists,
+} = require('../utils/financeFiles');
 
 const KINDS = ['cost', 'contract', 'budget'];
 
@@ -77,11 +83,18 @@ async function create(req, res) {
     createdBy: req.user.id,
   });
   if (req.file) {
-    const saved = saveFinanceFile(item.id, req.file);
-    item.fileName = saved.fileName;
-    item.storedName = saved.storedName;
-    item.mimeType = saved.mimeType;
-    await item.save();
+    const pendingStoredName = financeStoredName(item.id, req.file.originalname);
+    try {
+      const saved = saveFinanceFile(item.id, req.file, pendingStoredName);
+      item.fileName = saved.fileName;
+      item.storedName = saved.storedName;
+      item.mimeType = saved.mimeType;
+      await item.save();
+    } catch (error) {
+      removeFinanceFile(pendingStoredName);
+      await item.destroy();
+      throw error;
+    }
   }
   return res.status(201).json(toPublicFinanceItem(item));
 }
@@ -107,8 +120,18 @@ async function update(req, res) {
     item.amount = amount;
   }
   if (req.file) {
-    removeFinanceFile(item.storedName);
-    const saved = saveFinanceFile(item.id, req.file);
+    const oldStoredName = item.storedName;
+    const pendingStoredName = financeStoredName(item.id, req.file.originalname);
+    let saved;
+    try {
+      saved = saveFinanceFile(item.id, req.file, pendingStoredName);
+    } catch (error) {
+      removeFinanceFile(pendingStoredName);
+      throw error;
+    }
+    if (oldStoredName !== saved.storedName) {
+      removeFinanceFile(oldStoredName);
+    }
     item.fileName = saved.fileName;
     item.storedName = saved.storedName;
     item.mimeType = saved.mimeType;
@@ -132,7 +155,7 @@ async function download(req, res) {
   if (!project) return;
   const item = await loadItem(req, res, project);
   if (!item) return;
-  if (!item.storedName) {
+  if (!financeFileExists(item.storedName)) {
     return res.status(404).json({ error: 'File not found' });
   }
   return res.download(financeFilePath(item.storedName), item.fileName);

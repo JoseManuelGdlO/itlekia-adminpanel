@@ -6,7 +6,7 @@ process.env.FINANCE_UPLOAD_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'finance-
 
 const request = require('supertest');
 const app = require('../../src/app');
-const { sequelize, User, Project } = require('../../src/models');
+const { sequelize, User, Project, FinanceItem } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
 
 describe('finance routes', () => {
@@ -125,5 +125,198 @@ describe('finance routes', () => {
       .get(`/projects/${project.id}/finance/${created.body.id}/file`)
       .set('Cookie', developerCookie);
     expect(forbidden.status).toBe(403);
+  });
+
+  it('updates title, amount, and kind with public JSON only', async () => {
+    const created = await request(app)
+      .post(`/projects/${project.id}/finance`)
+      .set('Cookie', adminCookie)
+      .field('kind', 'cost')
+      .field('title', 'Draft')
+      .field('amount', '10');
+
+    const updated = await request(app)
+      .put(`/projects/${project.id}/finance/${created.body.id}`)
+      .set('Cookie', adminCookie)
+      .field('kind', 'budget')
+      .field('title', 'Approved')
+      .field('amount', '25.50');
+
+    expect(updated.status).toBe(200);
+    expect(updated.body).toEqual(
+      expect.objectContaining({
+        id: created.body.id,
+        kind: 'budget',
+        title: 'Approved',
+        amount: 25.5,
+        hasFile: false,
+      })
+    );
+    expect(updated.body.storedName).toBeUndefined();
+  });
+
+  it('replaces a file, removes the old file, and downloads the new file', async () => {
+    const oldContents = Buffer.from('%PDF-1.4 old');
+    const newContents = Buffer.from('new image contents');
+    const created = await request(app)
+      .post(`/projects/${project.id}/finance`)
+      .set('Cookie', adminCookie)
+      .field('kind', 'contract')
+      .field('title', 'Replace file')
+      .field('amount', '100')
+      .attach('file', oldContents, { filename: 'old.pdf', contentType: 'application/pdf' });
+    const oldStoredName = (await FinanceItem.findByPk(created.body.id)).storedName;
+    const oldPath = path.join(process.env.FINANCE_UPLOAD_DIR, oldStoredName);
+
+    const updated = await request(app)
+      .put(`/projects/${project.id}/finance/${created.body.id}`)
+      .set('Cookie', adminCookie)
+      .attach('file', newContents, { filename: 'new.png', contentType: 'image/png' });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.hasFile).toBe(true);
+    expect(updated.body.fileName).toBe('new.png');
+    expect(fs.existsSync(oldPath)).toBe(false);
+
+    const downloaded = await request(app)
+      .get(`/projects/${project.id}/finance/${created.body.id}/file`)
+      .set('Cookie', adminCookie)
+      .buffer(true);
+    expect(downloaded.status).toBe(200);
+    expect(downloaded.body).toEqual(newContents);
+  });
+
+  it('deletes the disk file when deleting an item', async () => {
+    const created = await request(app)
+      .post(`/projects/${project.id}/finance`)
+      .set('Cookie', adminCookie)
+      .field('kind', 'cost')
+      .field('title', 'Delete file')
+      .field('amount', '9')
+      .attach('file', Buffer.from('%PDF delete'), { filename: 'delete.pdf', contentType: 'application/pdf' });
+    const storedName = (await FinanceItem.findByPk(created.body.id)).storedName;
+    const storedPath = path.join(process.env.FINANCE_UPLOAD_DIR, storedName);
+    expect(fs.existsSync(storedPath)).toBe(true);
+
+    const deleted = await request(app)
+      .delete(`/projects/${project.id}/finance/${created.body.id}`)
+      .set('Cookie', adminCookie);
+
+    expect(deleted.status).toBe(204);
+    expect(fs.existsSync(storedPath)).toBe(false);
+  });
+
+  it('rejects invalid file MIME types', async () => {
+    const response = await request(app)
+      .post(`/projects/${project.id}/finance`)
+      .set('Cookie', adminCookie)
+      .field('kind', 'cost')
+      .field('title', 'Text file')
+      .field('amount', '1')
+      .attach('file', Buffer.from('plain text'), { filename: 'notes.txt', contentType: 'text/plain' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid file type' });
+  });
+
+  it('rejects files larger than 10 MB', async () => {
+    const response = await request(app)
+      .post(`/projects/${project.id}/finance`)
+      .set('Cookie', adminCookie)
+      .field('kind', 'cost')
+      .field('title', 'Large file')
+      .field('amount', '1')
+      .attach('file', Buffer.alloc(10 * 1024 * 1024 + 1), {
+        filename: 'large.pdf',
+        contentType: 'application/pdf',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'File too large' });
+  });
+
+  it('returns 404 when file metadata exists but the disk file is missing', async () => {
+    const created = await request(app)
+      .post(`/projects/${project.id}/finance`)
+      .set('Cookie', adminCookie)
+      .field('kind', 'contract')
+      .field('title', 'Missing disk file')
+      .field('amount', '100')
+      .attach('file', Buffer.from('%PDF missing'), { filename: 'missing.pdf', contentType: 'application/pdf' });
+    const item = await FinanceItem.findByPk(created.body.id);
+    fs.unlinkSync(path.join(process.env.FINANCE_UPLOAD_DIR, item.storedName));
+
+    const response = await request(app)
+      .get(`/projects/${project.id}/finance/${created.body.id}/file`)
+      .set('Cookie', adminCookie);
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'File not found' });
+  });
+
+  it('removes the row and any partial file when create file storage fails', async () => {
+    const originalWrite = fs.writeFileSync;
+    const filesBefore = new Set(fs.readdirSync(process.env.FINANCE_UPLOAD_DIR));
+    const writeSpy = jest.spyOn(fs, 'writeFileSync').mockImplementationOnce((...args) => {
+      originalWrite(...args);
+      throw new Error('disk write failed');
+    });
+
+    const response = await request(app)
+      .post(`/projects/${project.id}/finance`)
+      .set('Cookie', adminCookie)
+      .field('kind', 'cost')
+      .field('title', 'Failed create')
+      .field('amount', '5')
+      .attach('file', Buffer.from('%PDF partial'), { filename: 'partial.pdf', contentType: 'application/pdf' });
+    writeSpy.mockRestore();
+
+    expect(response.status).toBe(500);
+    expect(await FinanceItem.findOne({ where: { title: 'Failed create' } })).toBeNull();
+    expect(fs.readdirSync(process.env.FINANCE_UPLOAD_DIR).filter((name) => !filesBefore.has(name))).toEqual([]);
+  });
+
+  it('keeps the old file and metadata when replacement file storage fails', async () => {
+    const oldContents = Buffer.from('%PDF stable');
+    const created = await request(app)
+      .post(`/projects/${project.id}/finance`)
+      .set('Cookie', adminCookie)
+      .field('kind', 'contract')
+      .field('title', 'Stable item')
+      .field('amount', '100')
+      .attach('file', oldContents, { filename: 'stable.pdf', contentType: 'application/pdf' });
+    const before = await FinanceItem.findByPk(created.body.id);
+    const oldPath = path.join(process.env.FINANCE_UPLOAD_DIR, before.storedName);
+    const filesBefore = new Set(fs.readdirSync(process.env.FINANCE_UPLOAD_DIR));
+    const originalWrite = fs.writeFileSync;
+    const writeSpy = jest.spyOn(fs, 'writeFileSync').mockImplementationOnce((...args) => {
+      originalWrite(...args);
+      throw new Error('disk write failed');
+    });
+
+    const response = await request(app)
+      .put(`/projects/${project.id}/finance/${created.body.id}`)
+      .set('Cookie', adminCookie)
+      .field('title', 'Changed title')
+      .attach('file', Buffer.from('partial replacement'), {
+        filename: 'replacement.png',
+        contentType: 'image/png',
+      });
+    writeSpy.mockRestore();
+
+    const after = await FinanceItem.findByPk(created.body.id);
+    expect(response.status).toBe(500);
+    expect(after.title).toBe('Stable item');
+    expect(after.storedName).toBe(before.storedName);
+    expect(after.fileName).toBe('stable.pdf');
+    expect(fs.existsSync(oldPath)).toBe(true);
+    expect(fs.readdirSync(process.env.FINANCE_UPLOAD_DIR).filter((name) => !filesBefore.has(name))).toEqual([]);
+
+    const downloaded = await request(app)
+      .get(`/projects/${project.id}/finance/${created.body.id}/file`)
+      .set('Cookie', adminCookie)
+      .buffer(true);
+    expect(downloaded.status).toBe(200);
+    expect(downloaded.body).toEqual(oldContents);
   });
 });

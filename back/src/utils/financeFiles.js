@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('crypto');
 
 function uploadDir() {
   return process.env.FINANCE_UPLOAD_DIR || path.join(__dirname, '../../uploads/finance');
@@ -13,10 +14,19 @@ function safeOriginal(name) {
   return String(name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
-function saveFinanceFile(itemId, file) {
+function financeStoredName(itemId, originalName) {
+  return `${itemId}-${randomUUID()}-${safeOriginal(originalName)}`;
+}
+
+function saveFinanceFile(itemId, file, storedName = financeStoredName(itemId, file.originalname)) {
   ensureDir();
-  const storedName = `${itemId}-${safeOriginal(file.originalname)}`;
-  fs.writeFileSync(path.join(uploadDir(), storedName), file.buffer);
+  const full = path.join(uploadDir(), storedName);
+  try {
+    fs.writeFileSync(full, file.buffer);
+  } catch (error) {
+    if (fs.existsSync(full)) fs.unlinkSync(full);
+    throw error;
+  }
   return { storedName, fileName: file.originalname, mimeType: file.mimetype };
 }
 
@@ -30,4 +40,14 @@ function financeFilePath(storedName) {
   return path.join(uploadDir(), storedName);
 }
 
-module.exports = { saveFinanceFile, removeFinanceFile, financeFilePath };
+function financeFileExists(storedName) {
+  return Boolean(storedName) && fs.existsSync(financeFilePath(storedName));
+}
+
+module.exports = {
+  financeStoredName,
+  saveFinanceFile,
+  removeFinanceFile,
+  financeFilePath,
+  financeFileExists,
+};
