@@ -84,9 +84,9 @@ describe('backfillBoardColumns', () => {
     );
 
     await backfillBoardColumns();
-    await backfillBoardColumns();
 
-    const table = await queryInterface.describeTable('Tasks');
+    let table = await queryInterface.describeTable('Tasks');
+    expect(table.status).toBeUndefined();
     expect(table.columnId).toBeDefined();
     expect(table.columnId.allowNull).toBe(false);
     expect(addColumnSpy).toHaveBeenCalledWith(
@@ -114,6 +114,11 @@ describe('backfillBoardColumns', () => {
        WHERE t.title = 'Legacy in progress'`
     );
     expect(rows).toEqual([{ name: 'In Progress' }]);
+
+    await backfillBoardColumns();
+    table = await queryInterface.describeTable('Tasks');
+    expect(table.status).toBeUndefined();
+    expect(addConstraintSpy).toHaveBeenCalledTimes(1);
   });
 
   it('restricts deleting a populated column and allows deleting an empty column', async () => {

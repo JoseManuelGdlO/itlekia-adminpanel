@@ -108,6 +108,9 @@ async function backfillBoardColumns() {
     });
   }
   await ensureTaskColumnForeignKey(queryInterface);
+  if (taskColumns.status) {
+    await queryInterface.removeColumn('Tasks', 'status');
+  }
 
   const activityColumns = await queryInterface.describeTable('TaskActivities');
   for (const name of ['fromStatus', 'toStatus']) {
