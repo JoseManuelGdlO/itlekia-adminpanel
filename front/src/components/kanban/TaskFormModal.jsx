@@ -3,7 +3,7 @@ import * as tasksApi from '../../api/tasks';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import TaskDescriptionEditor from '../tasks/TaskDescriptionEditor';
 import {
   Dialog,
   DialogContent,
@@ -49,8 +49,8 @@ export default function TaskFormModal({ projectId, users, onCreated }) {
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
           </div>
           <div>
-            <Label htmlFor="description">Descripción</Label>
-            <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Label>Descripción</Label>
+            <TaskDescriptionEditor value={description} onChange={setDescription} />
           </div>
           <div>
             <Label htmlFor="assignee">Asignar a</Label>

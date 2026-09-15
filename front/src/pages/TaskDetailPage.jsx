@@ -5,6 +5,10 @@ import * as notesApi from '../api/notes';
 import NotesList from '../components/notes/NotesList';
 import NoteFormModal from '../components/notes/NoteFormModal';
 import PageSkeleton from '../components/PageSkeleton';
+import TaskDescriptionEditor from '../components/tasks/TaskDescriptionEditor';
+import { useAuth } from '../context/AuthContext';
+import { sanitizeTaskHtml } from '../lib/sanitizeTaskHtml';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function formatActivity(item) {
@@ -16,7 +20,10 @@ function formatActivity(item) {
 
 export default function TaskDetailPage() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [task, setTask] = useState(null);
+  const [description, setDescription] = useState('');
+  const [error, setError] = useState('');
   const [notes, setNotes] = useState([]);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +33,9 @@ export default function TaskDetailPage() {
     tasksApi
       .listTasks()
       .then((tasks) => {
-        setTask(tasks.find((t) => String(t.id) === id) || null);
+        const loadedTask = tasks.find((t) => String(t.id) === id) || null;
+        setTask(loadedTask);
+        setDescription(loadedTask?.description || '');
       })
       .finally(() => setLoading(false));
     notesApi.listNotes({ taskId: id }).then(setNotes);
@@ -42,8 +51,22 @@ export default function TaskDetailPage() {
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
   }
 
+  async function handleDescriptionSave() {
+    setError('');
+    try {
+      await tasksApi.updateTask(task.id, { description });
+      setTask((previous) => ({ ...previous, description }));
+    } catch (err) {
+      setDescription(task.description || '');
+      setError(err.response?.data?.error || err.message);
+    }
+  }
+
   if (loading) return <PageSkeleton />;
   if (!task) return <div className="p-6 text-sm text-muted-foreground">No se encontró</div>;
+
+  const canEditDescription =
+    user?.role === 'admin' || String(user?.id) === String(task.assigneeId);
 
   return (
     <div className="space-y-6 p-6">
@@ -55,7 +78,18 @@ export default function TaskDetailPage() {
           <span> / {task.title}</span>
         </p>
         <h2 className="font-heading text-xl font-semibold">{task.title}</h2>
-        <p className="text-sm text-muted-foreground">{task.description}</p>
+        {canEditDescription ? (
+          <div className="space-y-2">
+            <TaskDescriptionEditor value={description} onChange={setDescription} />
+            <Button type="button" onClick={handleDescriptionSave}>Guardar</Button>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+        ) : (
+          <div
+            className="text-sm text-muted-foreground"
+            dangerouslySetInnerHTML={{ __html: sanitizeTaskHtml(task.description) }}
+          />
+        )}
       </div>
       <Card className="shadow-card">
         <CardHeader className="flex flex-row items-center justify-between">
