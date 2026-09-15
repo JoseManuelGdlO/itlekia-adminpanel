@@ -93,4 +93,26 @@ describe('projects routes', () => {
     const deleteRes = await request(app).delete(`/projects/${otherProject.id}`).set('Cookie', adminCookie);
     expect(deleteRes.status).toBe(204);
   });
+
+  it('deletes a project that still has tasks and columns', async () => {
+    await sequelize.query('PRAGMA foreign_keys = ON');
+    try {
+      const doomed = await Project.create({ name: 'Doomed board' });
+      const [col] = await seedDefaultColumns(doomed.id);
+      const task = await Task.create({
+        projectId: doomed.id,
+        title: 'Goes with the project',
+        columnId: col.id,
+      });
+
+      const res = await request(app).delete(`/projects/${doomed.id}`).set('Cookie', adminCookie);
+
+      expect(res.status).toBe(204);
+      expect(await Project.findByPk(doomed.id)).toBeNull();
+      expect(await Task.findByPk(task.id)).toBeNull();
+      expect(await BoardColumn.count({ where: { projectId: doomed.id } })).toBe(0);
+    } finally {
+      await sequelize.query('PRAGMA foreign_keys = OFF');
+    }
+  });
 });

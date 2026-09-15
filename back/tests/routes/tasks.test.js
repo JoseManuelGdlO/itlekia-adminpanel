@@ -249,6 +249,29 @@ describe('tasks routes', () => {
     expect(res.body.title).toBe('Build homepage');
   });
 
+  it('does not reset columnId when PUT projectId is the current project as a string', async () => {
+    const cols = await BoardColumn.findAll({
+      where: { projectId: project.id },
+      order: [['position', 'ASC']],
+    });
+    const inProgress = cols[1];
+    const task = await Task.create({
+      projectId: project.id,
+      title: 'Stay in progress',
+      columnId: inProgress.id,
+    });
+
+    const res = await request(app)
+      .put(`/tasks/${task.id}`)
+      .set('Cookie', adminCookie)
+      .send({ projectId: String(task.projectId), title: 'Renamed in place' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe('Renamed in place');
+    expect(res.body.projectId).toBe(project.id);
+    expect(res.body.columnId).toBe(inProgress.id);
+  });
+
   it("admin moving a task to another project resets it to that project's first column", async () => {
     const destination = await Project.create({ name: 'Destination project' });
     const [destinationFirstColumn] = await seedDefaultColumns(destination.id);

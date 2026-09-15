@@ -1,4 +1,4 @@
-const { Project, sequelize } = require('../models');
+const { Project, Task, BoardColumn, sequelize } = require('../models');
 const { memberProjectIds } = require('../utils/projectAccess');
 const { seedDefaultColumns } = require('../utils/boardColumns');
 
@@ -51,8 +51,17 @@ async function remove(req, res) {
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
   }
-  await project.destroy();
-  return res.status(204).send();
+  const t = await sequelize.transaction();
+  try {
+    await Task.destroy({ where: { projectId: project.id }, transaction: t });
+    await BoardColumn.destroy({ where: { projectId: project.id }, transaction: t });
+    await project.destroy({ transaction: t });
+    await t.commit();
+    return res.status(204).send();
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 }
 
 module.exports = { list, create, update, remove };

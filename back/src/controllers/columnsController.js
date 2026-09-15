@@ -1,4 +1,4 @@
-const { sequelize, BoardColumn, Project, Task } = require('../models');
+const { sequelize, BoardColumn, Project, Task, Sequelize } = require('../models');
 const { isProjectMember } = require('../utils/projectAccess');
 const { toPublicColumn } = require('../utils/boardColumns');
 
@@ -56,8 +56,15 @@ async function create(req, res) {
   if (dup) return res.status(400).json({ error: 'Invalid name' });
   const max = await BoardColumn.max('position', { where: { projectId: project.id } });
   const position = Number.isFinite(max) ? max + 1 : 0;
-  const column = await BoardColumn.create({ projectId: project.id, name, position });
-  return res.status(201).json(toPublicColumn(column));
+  try {
+    const column = await BoardColumn.create({ projectId: project.id, name, position });
+    return res.status(201).json(toPublicColumn(column));
+  } catch (err) {
+    if (err instanceof Sequelize.UniqueConstraintError) {
+      return res.status(400).json({ error: 'Invalid name' });
+    }
+    throw err;
+  }
 }
 
 async function update(req, res) {
@@ -70,8 +77,15 @@ async function update(req, res) {
   const dup = await BoardColumn.findOne({ where: { projectId: project.id, name } });
   if (dup && dup.id !== column.id) return res.status(400).json({ error: 'Invalid name' });
   column.name = name;
-  await column.save();
-  return res.json(toPublicColumn(column));
+  try {
+    await column.save();
+    return res.json(toPublicColumn(column));
+  } catch (err) {
+    if (err instanceof Sequelize.UniqueConstraintError) {
+      return res.status(400).json({ error: 'Invalid name' });
+    }
+    throw err;
+  }
 }
 
 async function reorder(req, res) {
@@ -124,8 +138,15 @@ async function remove(req, res) {
   if (!column) return;
   const used = await Task.count({ where: { columnId: column.id } });
   if (used > 0) return res.status(409).json({ error: 'Column not empty' });
-  await column.destroy();
-  return res.status(204).send();
+  try {
+    await column.destroy();
+    return res.status(204).send();
+  } catch (err) {
+    if (err instanceof Sequelize.ForeignKeyConstraintError) {
+      return res.status(409).json({ error: 'Column not empty' });
+    }
+    throw err;
+  }
 }
 
 module.exports = { list, create, update, reorder, remove };

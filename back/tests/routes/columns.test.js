@@ -110,4 +110,109 @@ describe('column routes', () => {
       .send({ name: 'Nope' });
     expect(post.status).toBe(403);
   });
+
+  it('rejects incomplete, duplicate, and foreign reorder ids', async () => {
+    const listed = await request(app).get(`/projects/${project.id}/columns`).set('Cookie', adminCookie);
+    const ids = listed.body.map((column) => column.id);
+    const other = await Project.create({ name: 'Foreign board' });
+    const [foreignCol] = await seedDefaultColumns(other.id);
+
+    const incomplete = await request(app)
+      .put(`/projects/${project.id}/columns/reorder`)
+      .set('Cookie', adminCookie)
+      .send({ columnIds: ids.slice(1) });
+    expect(incomplete.status).toBe(400);
+    expect(incomplete.body).toEqual({ error: 'Invalid order' });
+
+    const duplicate = await request(app)
+      .put(`/projects/${project.id}/columns/reorder`)
+      .set('Cookie', adminCookie)
+      .send({ columnIds: [ids[0], ids[0], ...ids.slice(2)] });
+    expect(duplicate.status).toBe(400);
+    expect(duplicate.body).toEqual({ error: 'Invalid order' });
+
+    const foreign = await request(app)
+      .put(`/projects/${project.id}/columns/reorder`)
+      .set('Cookie', adminCookie)
+      .send({ columnIds: [...ids.slice(0, -1), foreignCol.id] });
+    expect(foreign.status).toBe(400);
+    expect(foreign.body).toEqual({ error: 'Invalid order' });
+  });
+
+  it('rejects renaming to a duplicate name', async () => {
+    const cols = await BoardColumn.findAll({ where: { projectId: project.id } });
+    const review = cols.find((column) => column.name === 'Review');
+    const res = await request(app)
+      .put(`/projects/${project.id}/columns/${review.id}`)
+      .set('Cookie', adminCookie)
+      .send({ name: 'To Do' });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid name' });
+  });
+
+  it('returns 404 when renaming or deleting a column from another project', async () => {
+    const other = await Project.create({ name: 'Other columns' });
+    const [foreignCol] = await seedDefaultColumns(other.id);
+
+    const renamed = await request(app)
+      .put(`/projects/${project.id}/columns/${foreignCol.id}`)
+      .set('Cookie', adminCookie)
+      .send({ name: 'Hijack' });
+    expect(renamed.status).toBe(404);
+    expect(renamed.body).toEqual({ error: 'Column not found' });
+
+    const deleted = await request(app)
+      .delete(`/projects/${project.id}/columns/${foreignCol.id}`)
+      .set('Cookie', adminCookie);
+    expect(deleted.status).toBe(404);
+    expect(deleted.body).toEqual({ error: 'Column not found' });
+  });
+
+  it('returns 404 when listing columns for a missing project', async () => {
+    const res = await request(app).get('/projects/999999/columns').set('Cookie', adminCookie);
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'Project not found' });
+  });
+
+  it('maps a unique-constraint race on create and rename to Invalid name', async () => {
+    const findOneSpy = jest.spyOn(BoardColumn, 'findOne').mockResolvedValueOnce(null);
+    const created = await request(app)
+      .post(`/projects/${project.id}/columns`)
+      .set('Cookie', adminCookie)
+      .send({ name: 'To Do' });
+    expect(created.status).toBe(400);
+    expect(created.body).toEqual({ error: 'Invalid name' });
+    findOneSpy.mockRestore();
+
+    const review = await BoardColumn.findOne({ where: { projectId: project.id, name: 'Review' } });
+    const renameSpy = jest
+      .spyOn(BoardColumn, 'findOne')
+      .mockResolvedValueOnce(review)
+      .mockResolvedValueOnce(null);
+    const renamed = await request(app)
+      .put(`/projects/${project.id}/columns/${review.id}`)
+      .set('Cookie', adminCookie)
+      .send({ name: 'To Do' });
+    expect(renamed.status).toBe(400);
+    expect(renamed.body).toEqual({ error: 'Invalid name' });
+    renameSpy.mockRestore();
+  });
+
+  it('maps a foreign-key constraint on delete to Column not empty', async () => {
+    const { ForeignKeyConstraintError } = require('sequelize');
+    const done = await BoardColumn.findOne({ where: { projectId: project.id, name: 'Done' } });
+    const countSpy = jest.spyOn(Task, 'count').mockResolvedValueOnce(0);
+    const destroySpy = jest
+      .spyOn(BoardColumn.prototype, 'destroy')
+      .mockRejectedValueOnce(new ForeignKeyConstraintError({}));
+
+    const res = await request(app)
+      .delete(`/projects/${project.id}/columns/${done.id}`)
+      .set('Cookie', adminCookie);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: 'Column not empty' });
+    countSpy.mockRestore();
+    destroySpy.mockRestore();
+  });
 });

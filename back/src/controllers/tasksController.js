@@ -91,10 +91,10 @@ async function update(req, res) {
 
   if (req.user.role === 'admin') {
     const { title, description, assigneeId, dueDate, projectId } = req.body;
-    const nextProjectId = projectId === undefined ? task.projectId : projectId;
+    const nextProjectId = projectId === undefined ? task.projectId : Number(projectId);
     const currentColumn = await BoardColumn.findByPk(task.columnId);
     if (
-      (projectId !== undefined && projectId !== task.projectId)
+      (projectId !== undefined && nextProjectId !== Number(task.projectId))
       || !currentColumn
       || currentColumn.projectId !== nextProjectId
     ) {
@@ -106,7 +106,7 @@ async function update(req, res) {
     if (description !== undefined) task.description = description;
     if (assigneeId !== undefined) task.assigneeId = assigneeId;
     if (dueDate !== undefined) task.dueDate = dueDate;
-    if (projectId !== undefined) task.projectId = projectId;
+    if (projectId !== undefined) task.projectId = nextProjectId;
   } else {
     if (req.body.description !== undefined) task.description = req.body.description;
   }

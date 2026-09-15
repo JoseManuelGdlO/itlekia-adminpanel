@@ -1,4 +1,4 @@
-const { DataTypes, QueryTypes } = require('sequelize');
+const { DataTypes, QueryTypes, Op } = require('sequelize');
 const { sequelize, Project, BoardColumn, Task, TaskActivity } = require('../models');
 const { seedDefaultColumns, firstColumn } = require('./boardColumns');
 
@@ -20,8 +20,17 @@ function assignColumnFromLegacyStatus(task, statusSlug, columnsByName) {
   return task;
 }
 
+const LEGACY_STATUS_SLUGS = Object.keys(SLUG_TO_NAME);
+
 async function mapActivitySlugs() {
-  const rows = await TaskActivity.findAll();
+  const rows = await TaskActivity.findAll({
+    where: {
+      [Op.or]: [
+        { fromStatus: LEGACY_STATUS_SLUGS },
+        { toStatus: LEGACY_STATUS_SLUGS },
+      ],
+    },
+  });
   for (const row of rows) {
     const from = SLUG_TO_NAME[row.fromStatus];
     const to = SLUG_TO_NAME[row.toStatus];
@@ -174,24 +183,28 @@ async function backfillBoardColumns() {
     }
   }
 
-  if (shouldSeedDefaultColumns) {
-    const tasks = await Task.findAll({ where: { columnId: null } });
-    for (const task of tasks) {
-      const col = await firstColumn(task.projectId);
-      if (col) {
-        task.columnId = col.id;
-        await task.save();
-      }
+  const leftover = await Task.findAll({ where: { columnId: null } });
+  for (const task of leftover) {
+    if (task.projectId == null) continue;
+    const col = await firstColumn(task.projectId);
+    if (col) {
+      task.columnId = col.id;
+      await task.save();
     }
   }
 
   if (taskColumns.columnId.allowNull !== false) {
-    // Keep the FK separate: MySQL Sequelize emits only ADD FOREIGN KEY when
-    // references are included here, so the column would remain nullable.
-    await queryInterface.changeColumn('Tasks', 'columnId', {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    });
+    const remaining = await Task.count({ where: { columnId: null } });
+    if (remaining > 0) {
+      console.error(`Cannot set Tasks.columnId NOT NULL: ${remaining} leftover null value(s)`);
+    } else {
+      // Keep the FK separate: MySQL Sequelize emits only ADD FOREIGN KEY when
+      // references are included here, so the column would remain nullable.
+      await queryInterface.changeColumn('Tasks', 'columnId', {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      });
+    }
   }
   await ensureTaskColumnForeignKey(queryInterface);
   if (taskColumns.status) {

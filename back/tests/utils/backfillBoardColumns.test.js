@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, Op } = require('sequelize');
 const { sequelize, Project, BoardColumn, TaskActivity, User, Task } = require('../../src/models');
 const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 const {
@@ -224,5 +224,123 @@ describe('backfillBoardColumns', () => {
     getForeignKeysSpy.mockRestore();
     removeConstraintSpy.mockRestore();
     addConstraintSpy.mockRestore();
+  });
+
+  it('fills leftover null columnId even when default columns already exist', async () => {
+    const project = await Project.create({ name: 'Leftover fill project' });
+    const [first] = await seedDefaultColumns(project.id);
+    const queryInterface = sequelize.getQueryInterface();
+    await queryInterface.changeColumn('Tasks', 'columnId', {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    });
+    await sequelize.query(
+      `INSERT INTO Tasks
+        (title, createdAt, updatedAt, projectId, columnId)
+       VALUES
+        ('Needs first column', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :projectId, NULL)`,
+      { replacements: { projectId: project.id } }
+    );
+
+    await backfillBoardColumns();
+
+    const [rows] = await sequelize.query(
+      `SELECT columnId FROM Tasks WHERE title = 'Needs first column'`
+    );
+    expect(rows).toEqual([{ columnId: first.id }]);
+  });
+
+  it('only loads leftover status slugs and does not rename a todo column', async () => {
+    const project = await Project.create({ name: 'Slug filter project' });
+    await seedDefaultColumns(project.id);
+    const todoColumn = await BoardColumn.create({
+      projectId: project.id,
+      name: 'todo',
+      position: 99,
+    });
+    const user = await User.create({
+      name: 'Slug',
+      email: 'slug@example.com',
+      passwordHash: 'x',
+      role: 'admin',
+    });
+    const task = await Task.create({
+      projectId: project.id,
+      title: 'Slug task',
+      columnId: todoColumn.id,
+    });
+    const slugRow = await TaskActivity.create({
+      taskId: task.id,
+      userId: user.id,
+      type: 'created',
+      fromStatus: null,
+      toStatus: 'todo',
+    });
+    const customRow = await TaskActivity.create({
+      taskId: task.id,
+      userId: user.id,
+      type: 'status_changed',
+      fromStatus: 'To Do',
+      toStatus: 'Blocked',
+    });
+
+    const findAllSpy = jest.spyOn(TaskActivity, 'findAll');
+    await backfillBoardColumns();
+    expect(findAllSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          [Op.or]: [
+            { fromStatus: ['todo', 'in_progress', 'review', 'done'] },
+            { toStatus: ['todo', 'in_progress', 'review', 'done'] },
+          ],
+        },
+      })
+    );
+    findAllSpy.mockRestore();
+
+    await slugRow.reload();
+    await customRow.reload();
+    await todoColumn.reload();
+    expect(slugRow.toStatus).toBe('To Do');
+    expect(customRow.toStatus).toBe('Blocked');
+    expect(todoColumn.name).toBe('todo');
+  });
+
+  it('does not throw when leftover tasks have null columnId that cannot be filled', async () => {
+    await sequelize.query('PRAGMA foreign_keys = OFF');
+    const queryInterface = sequelize.getQueryInterface();
+    await queryInterface.changeColumn('Tasks', 'columnId', {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    });
+    await sequelize.query(
+      `INSERT INTO Tasks
+        (title, createdAt, updatedAt, projectId, columnId)
+       VALUES
+        ('Orphan leftover', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL, NULL)`
+    );
+
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const changeColumnSpy = jest.spyOn(queryInterface, 'changeColumn');
+    changeColumnSpy.mockClear();
+
+    await expect(backfillBoardColumns()).resolves.toBeUndefined();
+    expect(changeColumnSpy).not.toHaveBeenCalledWith(
+      'Tasks',
+      'columnId',
+      expect.objectContaining({ allowNull: false })
+    );
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringMatching(/1/));
+
+    changeColumnSpy.mockClear();
+    await expect(backfillBoardColumns()).resolves.toBeUndefined();
+    expect(changeColumnSpy).not.toHaveBeenCalledWith(
+      'Tasks',
+      'columnId',
+      expect.objectContaining({ allowNull: false })
+    );
+
+    changeColumnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 });
