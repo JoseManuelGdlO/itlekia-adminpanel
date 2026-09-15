@@ -105,6 +105,7 @@ async function ensureTaskColumnForeignKey(queryInterface) {
 
   const incorrectForeignKeys = matchingForeignKeys.filter(
     (foreignKey) =>
+      !isTaskColumnForeignKey(foreignKey) ||
       !isRestrictiveDeleteAction(foreignKey.deleteAction || foreignKey.onDelete)
   );
   for (const foreignKey of incorrectForeignKeys) {
@@ -115,8 +116,10 @@ async function ensureTaskColumnForeignKey(queryInterface) {
   }
 
   if (
-    matchingForeignKeys.some((foreignKey) =>
-      isRestrictiveDeleteAction(foreignKey.deleteAction || foreignKey.onDelete)
+    matchingForeignKeys.some(
+      (foreignKey) =>
+        isTaskColumnForeignKey(foreignKey) &&
+        isRestrictiveDeleteAction(foreignKey.deleteAction || foreignKey.onDelete)
     )
   ) {
     return;
