@@ -16,7 +16,6 @@ export default function KanbanPage() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
 
   useEffect(() => {
-    tasksApi.listTasks().then(setTasks);
     projectsApi.listProjects().then((data) => {
       setProjects(data);
       if (data.length > 0) setSelectedProjectId(String(data[0].id));
@@ -25,6 +24,7 @@ export default function KanbanPage() {
 
   useEffect(() => {
     let ignore = false;
+    setTasks([]);
     setMembers([]);
     setColumns([]);
 
@@ -34,6 +34,9 @@ export default function KanbanPage() {
       };
     }
 
+    tasksApi.listTasks({ projectId: selectedProjectId }).then((data) => {
+      if (!ignore) setTasks(data);
+    });
     projectsApi.listMembers(selectedProjectId).then((data) => {
       if (!ignore) setMembers(data);
     });
@@ -58,7 +61,7 @@ export default function KanbanPage() {
     try {
       await tasksApi.updateTaskColumn(taskId, newColumnId);
     } catch {
-      tasksApi.listTasks().then(setTasks);
+      tasksApi.listTasks({ projectId: selectedProjectId }).then(setTasks);
     }
   }
 

@@ -49,7 +49,7 @@ describe('KanbanPage', () => {
   });
 
   it('lets a developer pick a project via tabs', async () => {
-    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([]);
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([
       { id: 1, name: 'Project Alpha' },
       { id: 2, name: 'Project Beta' },
@@ -67,6 +67,31 @@ describe('KanbanPage', () => {
     expect(screen.getByText('Nueva tarea')).toBeInTheDocument();
   });
 
+  it('reloads project-scoped tasks when switching tabs', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockImplementation(({ projectId } = {}) => {
+      if (String(projectId) === '1' || projectId === undefined) {
+        return Promise.resolve([
+          { id: 1, title: 'Alpha card', columnId: 11, projectId: 1, assigneeId: 1 },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([
+      { id: 1, name: 'Project Alpha' },
+      { id: 2, name: 'Project Beta' },
+    ]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
+
+    renderAs('developer');
+
+    expect(await screen.findByRole('link', { name: 'Alpha card' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Project Beta' }));
+
+    await waitFor(() => expect(tasksApi.listTasks).toHaveBeenCalledWith({ projectId: '2' }));
+    expect(screen.queryByRole('link', { name: 'Alpha card' })).not.toBeInTheDocument();
+  });
+
   it('clears members on project switch and ignores an out-of-order response', async () => {
     let resolveBeta;
     let resolveCurrentAlpha;
@@ -77,7 +102,7 @@ describe('KanbanPage', () => {
       resolveCurrentAlpha = resolve;
     });
 
-    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([]);
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([
       { id: 1, name: 'Project Alpha' },
       { id: 2, name: 'Project Beta' },
@@ -136,7 +161,7 @@ describe('KanbanPage', () => {
   });
 
   it('lets an admin pick which project tab is showing', async () => {
-    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([]);
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([
       { id: 1, name: 'Project Alpha' },
       { id: 2, name: 'Project Beta' },
