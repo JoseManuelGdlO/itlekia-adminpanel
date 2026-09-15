@@ -180,7 +180,58 @@ describe('tasks routes', () => {
       .set('Cookie', developerCookie)
       .send({ projectId: project.id, title: 'Nope', assigneeId: stranger.id });
     expect(res.status).toBe(400);
-    expect(res.body).toEqual({ error: 'Assignee must be a project member' });
+    expect(res.body).toEqual({ error: 'Invalid assignee' });
+  });
+
+  it('admin cannot assign a non-member', async () => {
+    const stranger = await User.create({
+      name: 'Outsider',
+      email: 'outsider@example.com',
+      passwordHash: 'x',
+      role: 'developer',
+    });
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Nope', assigneeId: stranger.id });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid assignee' });
+  });
+
+  it('strips script tags from description and keeps strong', async () => {
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({
+        projectId: project.id,
+        title: 'Rich',
+        description: '<p>Hi <strong>there</strong><script>alert(1)</script></p>',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.description).toContain('<strong>there</strong>');
+    expect(res.body.description).not.toContain('script');
+  });
+
+  it('stores blank html description as null', async () => {
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Empty html', description: '<p></p>' });
+    expect(res.status).toBe(201);
+    expect(res.body.description).toBeNull();
+  });
+
+  it('rejects an oversized description', async () => {
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({
+        projectId: project.id,
+        title: 'Too big',
+        description: `<p>${'a'.repeat(20001)}</p>`,
+      });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid description' });
   });
 
   it('assignee can PATCH the column of their task', async () => {

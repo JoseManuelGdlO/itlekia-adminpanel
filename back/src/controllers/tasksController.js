@@ -1,9 +1,29 @@
 const { Task, Project, TaskActivity, User, BoardColumn, sequelize } = require('../models');
 const { isProjectMember, memberProjectIds } = require('../utils/projectAccess');
 const { firstColumn } = require('../utils/boardColumns');
+const { sanitizeDescription } = require('../utils/sanitizeDescription');
 
 function isOwnerOrAdmin(task, user) {
   return user.role === 'admin' || task.assigneeId === user.id;
+}
+
+function applyDescription(target, raw) {
+  try {
+    target.description = sanitizeDescription(raw);
+    return null;
+  } catch (err) {
+    if (err.message === 'Invalid description') {
+      return { error: 'Invalid description' };
+    }
+    throw err;
+  }
+}
+
+async function assertAssigneeMember(assigneeId, projectId) {
+  if (assigneeId == null || assigneeId === '') return null;
+  const ok = await isProjectMember(assigneeId, projectId);
+  if (!ok) return { error: 'Invalid assignee' };
+  return null;
 }
 
 async function list(req, res) {
@@ -40,12 +60,17 @@ async function create(req, res) {
     if (!allowed) {
       return res.status(403).json({ error: 'Forbidden' });
     }
-    if (assigneeId) {
-      const assigneeOk = await isProjectMember(assigneeId, project.id);
-      if (!assigneeOk) {
-        return res.status(400).json({ error: 'Assignee must be a project member' });
-      }
+  }
+  const assigneeError = await assertAssigneeMember(assigneeId, project.id);
+  if (assigneeError) return res.status(400).json(assigneeError);
+  let descriptionHtml;
+  try {
+    descriptionHtml = sanitizeDescription(description);
+  } catch (err) {
+    if (err.message === 'Invalid description') {
+      return res.status(400).json({ error: 'Invalid description' });
     }
+    throw err;
   }
 
   const t = await sequelize.transaction();
@@ -58,7 +83,14 @@ async function create(req, res) {
       return res.status(400).json({ error: 'Invalid column' });
     }
     const task = await Task.create(
-      { projectId, title, description, assigneeId, dueDate, columnId: column.id },
+      {
+        projectId,
+        title,
+        description: descriptionHtml,
+        assigneeId: assigneeId === '' ? null : assigneeId,
+        dueDate,
+        columnId: column.id,
+      },
       { transaction: t }
     );
     await TaskActivity.create(
@@ -89,8 +121,21 @@ async function update(req, res) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
+  const nextProjectIdForAssignee =
+    req.user.role === 'admin' && req.body.projectId !== undefined
+      ? Number(req.body.projectId)
+      : task.projectId;
+  if (req.body.assigneeId !== undefined) {
+    const assigneeError = await assertAssigneeMember(req.body.assigneeId, nextProjectIdForAssignee);
+    if (assigneeError) return res.status(400).json(assigneeError);
+  }
+  if (req.body.description !== undefined) {
+    const descriptionError = applyDescription(task, req.body.description);
+    if (descriptionError) return res.status(400).json(descriptionError);
+  }
+
   if (req.user.role === 'admin') {
-    const { title, description, assigneeId, dueDate, projectId } = req.body;
+    const { title, assigneeId, dueDate, projectId } = req.body;
     const nextProjectId = projectId === undefined ? task.projectId : Number(projectId);
     const currentColumn = await BoardColumn.findByPk(task.columnId);
     if (
@@ -103,12 +148,9 @@ async function update(req, res) {
       task.columnId = column.id;
     }
     if (title !== undefined) task.title = title;
-    if (description !== undefined) task.description = description;
-    if (assigneeId !== undefined) task.assigneeId = assigneeId;
+    if (assigneeId !== undefined) task.assigneeId = assigneeId === '' ? null : assigneeId;
     if (dueDate !== undefined) task.dueDate = dueDate;
     if (projectId !== undefined) task.projectId = nextProjectId;
-  } else {
-    if (req.body.description !== undefined) task.description = req.body.description;
   }
 
   await task.save();
