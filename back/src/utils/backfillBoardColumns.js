@@ -37,6 +37,8 @@ async function backfillBoardColumns() {
     await queryInterface.addColumn('Tasks', 'columnId', {
       type: DataTypes.INTEGER,
       allowNull: true,
+      references: { model: 'BoardColumns', key: 'id' },
+      onDelete: 'RESTRICT',
     });
     taskColumns = await queryInterface.describeTable('Tasks');
   }
@@ -76,6 +78,15 @@ async function backfillBoardColumns() {
       task.columnId = col.id;
       await task.save();
     }
+  }
+
+  if (taskColumns.columnId.allowNull !== false) {
+    await queryInterface.changeColumn('Tasks', 'columnId', {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: 'BoardColumns', key: 'id' },
+      onDelete: 'RESTRICT',
+    });
   }
 
   const activityColumns = await queryInterface.describeTable('TaskActivities');

@@ -14,8 +14,16 @@ const FinanceItem = require('./financeItem')(sequelize);
 const Feature = require('./feature')(sequelize);
 const BoardColumn = require('./boardColumn')(sequelize);
 
-Project.hasMany(Task, { foreignKey: 'projectId', as: 'tasks' });
-Task.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+Project.hasMany(Task, {
+  foreignKey: 'projectId',
+  as: 'tasks',
+  onDelete: 'CASCADE',
+});
+Task.belongsTo(Project, {
+  foreignKey: 'projectId',
+  as: 'project',
+  onDelete: 'CASCADE',
+});
 
 User.hasMany(Task, { foreignKey: 'assigneeId', as: 'assignedTasks' });
 Task.belongsTo(User, { foreignKey: 'assigneeId', as: 'assignee' });
@@ -59,8 +67,16 @@ Feature.belongsTo(User, { foreignKey: 'userId', as: 'creator' });
 
 Project.hasMany(BoardColumn, { foreignKey: 'projectId', as: 'boardColumns' });
 BoardColumn.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
-BoardColumn.hasMany(Task, { foreignKey: 'columnId', as: 'tasks' });
-Task.belongsTo(BoardColumn, { foreignKey: 'columnId', as: 'column' });
+BoardColumn.hasMany(Task, {
+  foreignKey: 'columnId',
+  as: 'tasks',
+  onDelete: 'RESTRICT',
+});
+Task.belongsTo(BoardColumn, {
+  foreignKey: 'columnId',
+  as: 'column',
+  onDelete: 'RESTRICT',
+});
 
 module.exports = {
   sequelize,

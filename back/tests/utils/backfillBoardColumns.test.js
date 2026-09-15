@@ -84,6 +84,7 @@ describe('backfillBoardColumns', () => {
 
     const table = await queryInterface.describeTable('Tasks');
     expect(table.columnId).toBeDefined();
+    expect(table.columnId.allowNull).toBe(false);
     const [rows] = await sequelize.query(
       `SELECT c.name
        FROM Tasks t
@@ -91,5 +92,19 @@ describe('backfillBoardColumns', () => {
        WHERE t.title = 'Legacy in progress'`
     );
     expect(rows).toEqual([{ name: 'In Progress' }]);
+  });
+
+  it('restricts deleting a populated column and allows deleting an empty column', async () => {
+    await sequelize.query('PRAGMA foreign_keys = ON');
+    const project = await Project.create({ name: 'Restricted columns project' });
+    const [populatedColumn, emptyColumn] = await seedDefaultColumns(project.id);
+    await Task.create({
+      projectId: project.id,
+      title: 'Column dependency',
+      columnId: populatedColumn.id,
+    });
+
+    await expect(populatedColumn.destroy()).rejects.toThrow();
+    await expect(emptyColumn.destroy()).resolves.toBeDefined();
   });
 });
