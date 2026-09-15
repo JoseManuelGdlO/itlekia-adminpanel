@@ -1,4 +1,4 @@
-const { BoardColumn, Project, Task } = require('../models');
+const { sequelize, BoardColumn, Project, Task } = require('../models');
 const { isProjectMember } = require('../utils/projectAccess');
 const { toPublicColumn } = require('../utils/boardColumns');
 
@@ -78,26 +78,42 @@ async function reorder(req, res) {
   const project = await loadProject(req, res);
   if (!project) return;
   const ids = req.body.columnIds;
-  const existing = await BoardColumn.findAll({ where: { projectId: project.id } });
-  const existingIds = existing.map((c) => c.id).sort((a, b) => a - b);
-  const incoming = Array.isArray(ids) ? ids.map(Number) : [];
-  const sortedIn = [...incoming].sort((a, b) => a - b);
   if (
-    incoming.length !== existingIds.length ||
-    existingIds.some((id, i) => id !== sortedIn[i]) ||
-    new Set(incoming).size !== incoming.length
+    !Array.isArray(ids) ||
+    ids.some((id) => typeof id !== 'number' || !Number.isInteger(id))
   ) {
     return res.status(400).json({ error: 'Invalid order' });
   }
-  for (let position = 0; position < incoming.length; position += 1) {
-    const col = existing.find((c) => c.id === incoming[position]);
-    col.position = position;
-    await col.save();
-  }
-  const cols = await BoardColumn.findAll({
-    where: { projectId: project.id },
-    order: [['position', 'ASC'], ['id', 'ASC']],
+
+  const cols = await sequelize.transaction(async (transaction) => {
+    const existing = await BoardColumn.findAll({
+      where: { projectId: project.id },
+      transaction,
+    });
+    const existingIds = existing.map((column) => column.id).sort((a, b) => a - b);
+    const sortedIds = [...ids].sort((a, b) => a - b);
+    if (
+      ids.length !== existingIds.length ||
+      existingIds.some((id, index) => id !== sortedIds[index]) ||
+      new Set(ids).size !== ids.length
+    ) {
+      return null;
+    }
+
+    for (let position = 0; position < ids.length; position += 1) {
+      const column = existing.find((candidate) => candidate.id === ids[position]);
+      column.position = position;
+      await column.save({ transaction });
+    }
+
+    return BoardColumn.findAll({
+      where: { projectId: project.id },
+      order: [['position', 'ASC'], ['id', 'ASC']],
+      transaction,
+    });
   });
+
+  if (!cols) return res.status(400).json({ error: 'Invalid order' });
   return res.json(cols.map(toPublicColumn));
 }
 

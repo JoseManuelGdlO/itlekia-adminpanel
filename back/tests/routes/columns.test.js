@@ -69,6 +69,18 @@ describe('column routes', () => {
     expect(del.status).toBe(204);
   });
 
+  it('rejects string column ids when reordering', async () => {
+    const listed = await request(app).get(`/projects/${project.id}/columns`).set('Cookie', adminCookie);
+    const stringIds = listed.body.map((column) => String(column.id));
+    const reordered = await request(app)
+      .put(`/projects/${project.id}/columns/reorder`)
+      .set('Cookie', adminCookie)
+      .send({ columnIds: stringIds });
+
+    expect(reordered.status).toBe(400);
+    expect(reordered.body).toEqual({ error: 'Invalid order' });
+  });
+
   it('rejects empty name, duplicate name, delete with tasks, and developer writes', async () => {
     const cols = await BoardColumn.findAll({ where: { projectId: project.id } });
     const empty = await request(app)
