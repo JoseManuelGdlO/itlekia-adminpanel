@@ -16,8 +16,8 @@ describe('TaskDetailPage', () => {
       {
         id: 2,
         type: 'status_changed',
-        fromStatus: 'todo',
-        toStatus: 'in_progress',
+        fromStatus: 'To Do',
+        toStatus: 'In Progress',
         user: { id: 2, name: 'Luis' },
       },
     ]);

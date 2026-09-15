@@ -9,7 +9,11 @@ describe('TaskCard', () => {
     render(
       <MemoryRouter>
         <DndContext>
-          <TaskCard task={{ id: 9, title: 'Teammate card', status: 'todo' }} draggable={false} />
+          <TaskCard
+            task={{ id: 9, title: 'Teammate card', status: 'todo' }}
+            columnPosition={0}
+            draggable={false}
+          />
         </DndContext>
       </MemoryRouter>
     );

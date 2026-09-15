@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DndContext } from '@dnd-kit/core';
+import { arrayMove, SortableContext } from '@dnd-kit/sortable';
 import * as tasksApi from '../api/tasks';
 import * as projectsApi from '../api/projects';
 import * as columnsApi from '../api/columns';
@@ -22,6 +23,11 @@ export default function KanbanPage() {
   const [members, setMembers] = useState([]);
   const [columns, setColumns] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [addingColumn, setAddingColumn] = useState(false);
+  const [newColumnName, setNewColumnName] = useState('');
+  const [error, setError] = useState('');
+  const selectedProjectIdRef = useRef(selectedProjectId);
+  selectedProjectIdRef.current = selectedProjectId;
 
   useEffect(() => {
     projectsApi.listProjects().then((data) => {
@@ -61,6 +67,23 @@ export default function KanbanPage() {
     const { active, over } = event;
     if (!over) return;
 
+    if (active.data.current?.type === 'column') {
+      const oldIndex = columns.findIndex((column) => String(column.id) === String(active.id));
+      const newIndex = columns.findIndex((column) => String(column.id) === String(over.id));
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+
+      const projectId = selectedProjectId;
+      const next = arrayMove(columns, oldIndex, newIndex);
+      setColumns(next);
+      try {
+        await columnsApi.reorderColumns(projectId, next.map((column) => column.id));
+      } catch {
+        const freshColumns = await columnsApi.listColumns(projectId);
+        if (selectedProjectIdRef.current === projectId) setColumns(freshColumns);
+      }
+      return;
+    }
+
     const taskId = Number(active.id);
     const newColumnId = Number(over.id);
     const previousColumnId = tasks.find((task) => task.id === taskId)?.columnId;
@@ -76,6 +99,45 @@ export default function KanbanPage() {
 
   function handleTaskCreated(task) {
     setTasks((prev) => [...prev, task]);
+  }
+
+  async function handleAddColumn(event) {
+    event.preventDefault();
+    const name = newColumnName.trim();
+    if (!name) return;
+
+    const projectId = selectedProjectId;
+    try {
+      setError('');
+      const column = await columnsApi.createColumn(projectId, { name });
+      if (selectedProjectIdRef.current === projectId) {
+        setColumns((prev) => [...prev, column]);
+        setNewColumnName('');
+        setAddingColumn(false);
+      }
+    } catch (addError) {
+      setError(addError.response?.data?.error || addError.message || 'No se pudo crear la columna');
+    }
+  }
+
+  async function handleRenameColumn(columnId, name) {
+    const projectId = selectedProjectId;
+    const updated = await columnsApi.updateColumn(projectId, columnId, { name });
+    if (selectedProjectIdRef.current === projectId) {
+      setColumns((prev) =>
+        prev.map((column) =>
+          column.id === columnId ? { ...column, ...updated, name } : column
+        )
+      );
+    }
+  }
+
+  async function handleDeleteColumn(columnId) {
+    const projectId = selectedProjectId;
+    await columnsApi.deleteColumn(projectId, columnId);
+    if (selectedProjectIdRef.current === projectId) {
+      setColumns((prev) => prev.filter((column) => column.id !== columnId));
+    }
   }
 
   const visibleTasks = tasks.filter((t) => String(t.projectId) === String(selectedProjectId));
@@ -113,14 +175,39 @@ export default function KanbanPage() {
       )}
       <DndContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto">
-          {columns.map((column) => (
-            <KanbanColumn
-              key={column.id}
-              column={column}
-              tasks={visibleTasks.filter((t) => String(t.columnId) === String(column.id))}
-              canDragTask={canDragTask}
-            />
-          ))}
+          <SortableContext items={columns.map((column) => String(column.id))}>
+            {columns.map((column) => (
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                tasks={visibleTasks.filter((t) => String(t.columnId) === String(column.id))}
+                canDragTask={canDragTask}
+                isAdmin={user.role === 'admin'}
+                onRename={(name) => handleRenameColumn(column.id, name)}
+                onDelete={() => handleDeleteColumn(column.id)}
+              />
+            ))}
+          </SortableContext>
+          {user.role === 'admin' && selectedProjectId && (
+            <div className="w-64 shrink-0 rounded-xl border border-dashed border-border p-2">
+              {addingColumn ? (
+                <form onSubmit={handleAddColumn}>
+                  <input
+                    autoFocus
+                    aria-label="Nombre de columna"
+                    value={newColumnName}
+                    onChange={(event) => setNewColumnName(event.target.value)}
+                    className="w-full rounded border border-border bg-background px-2 py-1 text-sm"
+                  />
+                </form>
+              ) : (
+                <button type="button" onClick={() => setAddingColumn(true)}>
+                  + Columna
+                </button>
+              )}
+              {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+            </div>
+          )}
         </div>
       </DndContext>
     </div>

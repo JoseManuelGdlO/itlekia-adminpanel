@@ -199,4 +199,39 @@ describe('KanbanPage', () => {
     expect(screen.getByRole('tab', { name: 'Project Beta' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Nueva tarea')).toBeInTheDocument();
   });
+
+  it('lets an admin add a column and hides that chrome from a developer', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha' }]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([
+      { id: 11, name: 'To Do', position: 0, projectId: 1 },
+    ]);
+    vi.spyOn(columnsApi, 'createColumn').mockResolvedValue({
+      id: 15,
+      name: 'Blocked',
+      position: 1,
+      projectId: 1,
+    });
+
+    renderAs('admin');
+    expect(await screen.findByText('+ Columna')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('+ Columna'));
+    fireEvent.change(screen.getByLabelText('Nombre de columna'), { target: { value: 'Blocked' } });
+    fireEvent.submit(screen.getByLabelText('Nombre de columna').closest('form'));
+    await waitFor(() => expect(columnsApi.createColumn).toHaveBeenCalledWith('1', { name: 'Blocked' }));
+    expect(await screen.findByText('Blocked')).toBeInTheDocument();
+  });
+
+  it('does not show + Columna to a developer', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha' }]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([
+      { id: 11, name: 'To Do', position: 0, projectId: 1 },
+    ]);
+    renderAs('developer');
+    await screen.findByText('To Do');
+    expect(screen.queryByText('+ Columna')).not.toBeInTheDocument();
+  });
 });

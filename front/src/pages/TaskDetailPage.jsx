@@ -7,20 +7,11 @@ import NoteFormModal from '../components/notes/NoteFormModal';
 import PageSkeleton from '../components/PageSkeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-const STATUS_LABELS = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  review: 'Review',
-  done: 'Done',
-};
-
 function formatActivity(item) {
   if (item.type === 'created') {
     return `${item.user.name} creó la tarea`;
   }
-  const fromLabel = STATUS_LABELS[item.fromStatus] || item.fromStatus;
-  const toLabel = STATUS_LABELS[item.toStatus] || item.toStatus;
-  return `${item.user.name} movió ${fromLabel} → ${toLabel}`;
+  return `${item.user.name} movió ${item.fromStatus} → ${item.toStatus}`;
 }
 
 export default function TaskDetailPage() {

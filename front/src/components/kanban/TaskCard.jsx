@@ -1,19 +1,15 @@
 import { useDraggable } from '@dnd-kit/core';
 import { Link } from 'react-router-dom';
 
-const DOT = {
-  todo: 'bg-muted-foreground',
-  in_progress: 'bg-primary',
-  review: 'bg-rail',
-  done: 'bg-teal-soft',
-};
+const DOTS = ['bg-muted-foreground', 'bg-primary', 'bg-rail', 'bg-teal-soft'];
 
-export default function TaskCard({ task, draggable = true }) {
+export default function TaskCard({ task, columnPosition, draggable = true }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: String(task.id),
     disabled: !draggable,
   });
 
+  const dot = DOTS[(columnPosition ?? 0) % DOTS.length];
   const style = transform
     ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
     : undefined;
@@ -29,7 +25,7 @@ export default function TaskCard({ task, draggable = true }) {
       }`}
     >
       <div className="flex items-start gap-2">
-        <span className={`mt-1 size-2 shrink-0 rounded-full ${DOT.todo}`} />
+        <span className={`mt-1 size-2 shrink-0 rounded-full ${dot}`} />
         <Link to={`/tasks/${task.id}`} onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">
           {task.title}
         </Link>
