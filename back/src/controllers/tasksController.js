@@ -121,12 +121,16 @@ async function update(req, res) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const nextProjectIdForAssignee =
-    req.user.role === 'admin' && req.body.projectId !== undefined
-      ? Number(req.body.projectId)
-      : task.projectId;
-  if (req.body.assigneeId !== undefined) {
-    const assigneeError = await assertAssigneeMember(req.body.assigneeId, nextProjectIdForAssignee);
+  const adminProjectUpdate = req.user.role === 'admin' && req.body.projectId !== undefined;
+  const nextProjectIdForAssignee = adminProjectUpdate
+    ? Number(req.body.projectId)
+    : task.projectId;
+  const projectChanged =
+    adminProjectUpdate && nextProjectIdForAssignee !== Number(task.projectId);
+  if (req.body.assigneeId !== undefined || (projectChanged && task.assigneeId != null)) {
+    const nextAssigneeId =
+      req.body.assigneeId !== undefined ? req.body.assigneeId : task.assigneeId;
+    const assigneeError = await assertAssigneeMember(nextAssigneeId, nextProjectIdForAssignee);
     if (assigneeError) return res.status(400).json(assigneeError);
   }
   if (req.body.description !== undefined) {

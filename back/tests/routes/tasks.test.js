@@ -300,6 +300,42 @@ describe('tasks routes', () => {
     expect(res.body.title).toBe('Build homepage');
   });
 
+  it('admin PUT rejects an assignee who is not a project member', async () => {
+    const outsider = await User.create({
+      name: 'PUT outsider',
+      email: 'put-outsider@example.com',
+      passwordHash: 'x',
+      role: 'developer',
+    });
+
+    const res = await request(app)
+      .put(`/tasks/${assignedTask.id}`)
+      .set('Cookie', adminCookie)
+      .send({ assigneeId: outsider.id });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid assignee' });
+  });
+
+  it('admin PUT sanitizes scripts and stores blank HTML descriptions as null', async () => {
+    const scripted = await request(app)
+      .put(`/tasks/${assignedTask.id}`)
+      .set('Cookie', adminCookie)
+      .send({ description: '<p>Keep <strong>this</strong><script>alert(1)</script></p>' });
+
+    expect(scripted.status).toBe(200);
+    expect(scripted.body.description).toContain('<strong>this</strong>');
+    expect(scripted.body.description).not.toContain('script');
+
+    const blank = await request(app)
+      .put(`/tasks/${assignedTask.id}`)
+      .set('Cookie', adminCookie)
+      .send({ description: '<p></p>' });
+
+    expect(blank.status).toBe(200);
+    expect(blank.body.description).toBeNull();
+  });
+
   it('does not reset columnId when PUT projectId is the current project as a string', async () => {
     const cols = await BoardColumn.findAll({
       where: { projectId: project.id },
@@ -342,6 +378,28 @@ describe('tasks routes', () => {
     expect(res.body.columnId).toBe(destinationFirstColumn.id);
     const column = await BoardColumn.findByPk(res.body.columnId);
     expect(column.projectId).toBe(destination.id);
+  });
+
+  it('admin PUT rejects moving a task when its assignee is not a destination member', async () => {
+    const destination = await Project.create({ name: 'Destination without assignee' });
+    await seedDefaultColumns(destination.id);
+    const task = await Task.create({
+      projectId: project.id,
+      title: 'Keep valid assignee',
+      assigneeId: developer.id,
+      columnId: todoCol.id,
+    });
+
+    const res = await request(app)
+      .put(`/tasks/${task.id}`)
+      .set('Cookie', adminCookie)
+      .send({ projectId: destination.id });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid assignee' });
+    await task.reload();
+    expect(task.projectId).toBe(project.id);
+    expect(task.assigneeId).toBe(developer.id);
   });
 
   it('admin deletes a task', async () => {
