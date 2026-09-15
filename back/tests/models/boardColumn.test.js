@@ -10,6 +10,10 @@ describe('BoardColumn model', () => {
     await sequelize.close();
   });
 
+  it('uses case-sensitive storage for column names', () => {
+    expect(BoardColumn.rawAttributes.name.type.toSql()).toMatch(/\bBINARY\b/);
+  });
+
   it('seeds the four default columns in order', async () => {
     const project = await Project.create({ name: 'Website Revamp' });
     const cols = await seedDefaultColumns(project.id);
@@ -29,5 +33,14 @@ describe('BoardColumn model', () => {
     await expect(
       BoardColumn.create({ projectId: project.id, name: 'To Do', position: 1 })
     ).rejects.toThrow();
+  });
+
+  it('allows names that differ only by case on the same project', async () => {
+    const project = await Project.create({ name: 'Case-sensitive columns' });
+    await BoardColumn.create({ projectId: project.id, name: 'To Do', position: 0 });
+
+    await expect(
+      BoardColumn.create({ projectId: project.id, name: 'to do', position: 1 })
+    ).resolves.toMatchObject({ name: 'to do' });
   });
 });

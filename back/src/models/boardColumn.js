@@ -5,7 +5,7 @@ module.exports = (sequelize) => {
     'BoardColumn',
     {
       projectId: { type: DataTypes.INTEGER, allowNull: false },
-      name: { type: DataTypes.STRING, allowNull: false },
+      name: { type: DataTypes.STRING.BINARY, allowNull: false },
       position: { type: DataTypes.INTEGER, allowNull: false },
     },
     {
