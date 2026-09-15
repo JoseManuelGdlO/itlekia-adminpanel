@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
+  ChevronsLeft,
+  ChevronsRight,
   Columns3,
   FolderKanban,
   LayoutDashboard,
-  Menu,
   StickyNote,
   Users,
-  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -49,36 +49,17 @@ function Avatar({ name }) {
   return (
     <span
       aria-hidden="true"
-      className="flex size-8 items-center justify-center rounded-full bg-teal-soft text-xs font-medium text-white"
+      className="flex size-8 items-center justify-center rounded-full bg-teal-soft text-xs font-medium text-primary-foreground"
     >
       {userInitials(name)}
     </span>
   );
 }
 
-function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = useState(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
-    return window.matchMedia('(min-width: 1024px)').matches;
-  });
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
-    const mq = window.matchMedia('(min-width: 1024px)');
-    const onChange = (event) => setIsDesktop(event.matches);
-    mq.addEventListener('change', onChange);
-    setIsDesktop(mq.matches);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-
-  return isDesktop;
-}
-
 export default function AppShell({ children }) {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const isDesktop = useIsDesktop();
+  const [expanded, setExpanded] = useState(false);
   const items = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
   const roleLabel = user.role === 'admin' ? 'Admin' : 'Developer';
 
@@ -86,12 +67,35 @@ export default function AppShell({ children }) {
     <div className="flex h-screen overflow-hidden bg-background">
       <nav
         aria-label="Principal"
-        className="flex w-12 shrink-0 flex-col items-center bg-rail py-3"
+        className={`flex shrink-0 flex-col bg-rail py-3 transition-[width] duration-120 ${
+          expanded ? 'w-56' : 'w-12 items-center'
+        }`}
       >
-        <NavLink to="/" className="mb-4 flex size-10 items-center justify-center">
-          <img src="/intelekia-isotipo.png" alt="Intelekia" className="size-7 object-contain" />
-        </NavLink>
-        <div className="flex flex-1 flex-col items-center gap-1">
+        <div className={`mb-4 flex items-center ${expanded ? 'justify-between px-2' : 'flex-col gap-1'}`}>
+          <NavLink
+            to="/"
+            title="Intelekia"
+            className="flex size-10 shrink-0 items-center justify-center"
+          >
+            <img src="/intelekia-isotipo.png" alt="Intelekia" className="size-7 object-contain" />
+          </NavLink>
+          {expanded ? (
+            <p className="min-w-0 flex-1 truncate px-1 font-heading text-sm font-semibold text-primary-foreground">
+              Intelekia
+            </p>
+          ) : null}
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Contraer menú' : 'Expandir menú'}
+            title={expanded ? 'Contraer menú' : 'Expandir menú'}
+            onClick={() => setExpanded((open) => !open)}
+            className="flex size-10 shrink-0 items-center justify-center rounded-lg text-primary-foreground/70 transition-colors duration-120 hover:text-primary-foreground"
+          >
+            {expanded ? <ChevronsLeft className="size-5" /> : <ChevronsRight className="size-5" />}
+          </button>
+        </div>
+        <div className={`flex flex-1 flex-col gap-1 ${expanded ? 'px-2' : 'items-center'}`}>
           {items.map((item) => {
             const Icon = item.icon;
             return (
@@ -99,10 +103,15 @@ export default function AppShell({ children }) {
                 key={item.to}
                 to={item.to}
                 end={item.to === '/'}
+                title={expanded ? undefined : item.label}
                 aria-label={item.label}
                 className={({ isActive }) =>
-                  `relative flex size-10 items-center justify-center rounded-lg transition-colors duration-120 ${
-                    isActive ? 'text-primary' : 'text-white/70 hover:text-white'
+                  `relative flex h-10 items-center rounded-lg transition-colors duration-120 ${
+                    expanded ? 'gap-2 px-2' : 'size-10 justify-center'
+                  } ${
+                    isActive
+                      ? 'bg-primary/15 text-primary'
+                      : 'text-primary-foreground/70 hover:text-primary-foreground'
                   }`
                 }
               >
@@ -111,96 +120,30 @@ export default function AppShell({ children }) {
                     {isActive && (
                       <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-primary" />
                     )}
-                    <Icon className="size-5" />
+                    <Icon className="size-5 shrink-0" />
+                    {expanded ? (
+                      <span className="truncate text-sm font-medium">{item.label}</span>
+                    ) : null}
                   </>
                 )}
               </NavLink>
             );
           })}
         </div>
-        <Avatar name={user.name} />
       </nav>
-
-      {sidebarOpen && (
-        <button
-          type="button"
-          className="fixed inset-0 z-20 bg-rail/40 lg:hidden"
-          aria-label="Cerrar menú (fondo)"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      <aside
-        inert={!sidebarOpen && !isDesktop}
-        className={`fixed inset-y-0 left-12 z-30 flex w-56 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-120 lg:static lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
-      >
-        <div className="flex items-start justify-between px-4 pt-4">
-          <div>
-            <p className="font-heading text-base font-semibold text-rail">Intelekia</p>
-            <p className="text-xs text-muted-foreground">Portal</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="lg:hidden"
-            aria-label="Cerrar menú"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X />
-          </Button>
-        </div>
-        <nav aria-label="Secciones" className="mt-4 flex-1 space-y-1 px-2">
-          {items.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-colors duration-120 ${
-                    isActive
-                      ? 'bg-accent text-rail'
-                      : 'text-foreground hover:bg-accent'
-                  }`
-                }
-              >
-                <Icon className="size-4 shrink-0" />
-                {item.label}
-              </NavLink>
-            );
-          })}
-        </nav>
-        <div className="border-t border-sidebar-border p-3">
-          <Button variant="outline" className="w-full" onClick={() => logout()}>
-            Salir
-          </Button>
-        </div>
-      </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-card px-4">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="lg:hidden"
-              aria-label="Menú"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <Menu />
-            </Button>
-            <h1 className="font-heading text-xl font-semibold">{pageTitle(pathname)}</h1>
-          </div>
+          <h1 className="font-heading text-xl font-semibold">{pageTitle(pathname)}</h1>
           <div className="flex items-center gap-2">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium leading-tight">{user.name}</p>
               <p className="text-xs text-muted-foreground">{roleLabel}</p>
             </div>
             <Avatar name={user.name} />
+            <Button variant="outline" size="sm" onClick={() => logout()}>
+              Salir
+            </Button>
           </div>
         </header>
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>

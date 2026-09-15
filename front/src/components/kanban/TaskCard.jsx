@@ -1,10 +1,9 @@
 import { useDraggable } from '@dnd-kit/core';
-import { Link } from 'react-router-dom';
 
 const DOTS = ['bg-muted-foreground', 'bg-primary', 'bg-rail', 'bg-teal-soft'];
 
-export default function TaskCard({ task, columnPosition, draggable = true }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+export default function TaskCard({ task, columnPosition, draggable = true, onOpen }) {
+  const { listeners, setNodeRef, transform } = useDraggable({
     id: `task:${task.id}`,
     data: { type: 'task' },
     disabled: !draggable,
@@ -20,16 +19,20 @@ export default function TaskCard({ task, columnPosition, draggable = true }) {
       ref={setNodeRef}
       style={style}
       {...(draggable ? listeners : {})}
-      {...(draggable ? attributes : {})}
       className={`rounded-lg bg-card p-2 text-sm shadow-card ring-1 ring-border ${
         draggable ? 'cursor-grab' : 'cursor-default'
       }`}
     >
       <div className="flex items-start gap-2">
         <span className={`mt-1 size-2 shrink-0 rounded-full ${dot}`} />
-        <Link to={`/tasks/${task.id}`} onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">
+        <button
+          type="button"
+          className="text-left text-primary hover:underline"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => onOpen?.(task)}
+        >
           {task.title}
-        </Link>
+        </button>
       </div>
     </div>
   );

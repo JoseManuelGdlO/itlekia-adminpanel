@@ -47,7 +47,7 @@ export default function TaskFormModal({ projectId, users, onCreated }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button>Nueva tarea</Button>} />
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Nueva tarea</DialogTitle>
         </DialogHeader>

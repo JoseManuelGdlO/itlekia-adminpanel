@@ -1,0 +1,23 @@
+# Overlay local: publica puertos en el host. No usar en EasyPanel.
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+
+services:
+  back:
+    ports:
+      - "4000:4000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      NODE_ENV: development
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      DB_HOST: ${DB_HOST:-host.docker.internal}
+
+  front:
+    ports:
+      - "8080:80"
+    build:
+      context: ./front
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}

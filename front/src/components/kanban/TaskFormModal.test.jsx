@@ -88,4 +88,14 @@ describe('TaskFormModal', () => {
     expect(onCreated).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Título')).toBeInTheDocument();
   });
+
+  it('opens a wide dialog so the editor can be used', async () => {
+    render(<TaskFormModal projectId={1} users={[]} onCreated={vi.fn()} />);
+
+    await act(async () => {
+      screen.getByText('Nueva tarea').click();
+    });
+
+    expect(document.querySelector('[data-slot="dialog-content"]')).toHaveClass('sm:max-w-4xl');
+  });
 });

@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import KanbanPage, { rollbackTaskColumn } from './KanbanPage';
 import * as tasksApi from '../api/tasks';
+import * as notesApi from '../api/notes';
 import * as projectsApi from '../api/projects';
 import * as columnsApi from '../api/columns';
 
@@ -25,13 +26,17 @@ const dnd = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children, onDragEnd }) => {
-    dnd.dragEnd = onDragEnd;
-    return children;
-  },
-  useDraggable: dnd.useDraggable,
-}));
+vi.mock('@dnd-kit/core', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    DndContext: ({ children, onDragEnd }) => {
+      dnd.dragEnd = onDragEnd;
+      return children;
+    },
+    useDraggable: dnd.useDraggable,
+  };
+});
 
 vi.mock('@dnd-kit/sortable', async (importOriginal) => {
   const actual = await importOriginal();
@@ -115,7 +120,7 @@ describe('KanbanPage', () => {
 
     renderAs('admin');
 
-    expect(await screen.findByRole('link', { name: 'Matching id card' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Matching id card' })).toBeInTheDocument();
     expect(dnd.useSortable).toHaveBeenCalledWith(expect.objectContaining({
       id: 'column:11',
       data: { type: 'column' },
@@ -136,7 +141,7 @@ describe('KanbanPage', () => {
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValueOnce(defaultColumns.slice(0, 2));
 
     renderAs('admin');
-    await screen.findByRole('link', { name: 'Matching id card' });
+    await screen.findByRole('button', { name: 'Matching id card' });
 
     await act(async () => {
       await dnd.dragEnd({
@@ -158,7 +163,7 @@ describe('KanbanPage', () => {
     vi.spyOn(columnsApi, 'reorderColumns').mockResolvedValueOnce([]);
 
     renderAs('admin');
-    const cardLink = await screen.findByRole('link', { name: 'Positioned card' });
+    const cardLink = await screen.findByRole('button', { name: 'Positioned card' });
     expect(cardLink.previousElementSibling).toHaveClass('bg-muted-foreground');
 
     await act(async () => {
@@ -209,11 +214,11 @@ describe('KanbanPage', () => {
 
     renderAs('developer');
 
-    expect(await screen.findByRole('link', { name: 'Alpha card' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Alpha card' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('tab', { name: 'Project Beta' }));
 
     await waitFor(() => expect(tasksApi.listTasks).toHaveBeenCalledWith({ projectId: '2' }));
-    expect(screen.queryByRole('link', { name: 'Alpha card' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Alpha card' })).not.toBeInTheDocument();
   });
 
   it('clears members on project switch and ignores an out-of-order response', async () => {
@@ -275,13 +280,11 @@ describe('KanbanPage', () => {
 
     renderAs('developer', 7);
 
-    const ownCard = (await screen.findByRole('link', { name: 'Own card' })).closest('div.rounded-lg');
-    const teammateCard = screen.getByRole('link', { name: 'Teammate card' }).closest('div.rounded-lg');
+    const ownCard = (await screen.findByRole('button', { name: 'Own card' })).closest('div.rounded-lg');
+    const teammateCard = screen.getByRole('button', { name: 'Teammate card' }).closest('div.rounded-lg');
 
-    expect(ownCard).toHaveAttribute('role', 'button');
-    expect(ownCard).toHaveAttribute('tabindex', '0');
-    expect(teammateCard).not.toHaveAttribute('role');
-    expect(teammateCard).not.toHaveAttribute('tabindex');
+    expect(ownCard).toHaveClass('cursor-grab');
+    expect(teammateCard).toHaveClass('cursor-default');
   });
 
   it('lets an admin pick which project tab is showing', async () => {
@@ -359,5 +362,24 @@ describe('KanbanPage', () => {
     renderAs('developer');
     await screen.findByText('To Do');
     expect(screen.queryByText('+ Columna')).not.toBeInTheDocument();
+  });
+
+  it('opens the task in a wide modal instead of navigating', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([
+      { id: 9, title: 'Own card', columnId: 11, projectId: 1, assigneeId: 7, description: '<p>Hi</p>' },
+    ]);
+    vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValue([]);
+    vi.spyOn(notesApi, 'listNotes').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha' }]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
+
+    renderAs('developer', 7);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Own card' }));
+
+    expect(await screen.findByText('Notas de la tarea')).toBeInTheDocument();
+    expect(screen.getByText('Historial')).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="dialog-content"]')).toHaveClass('sm:max-w-4xl');
   });
 });

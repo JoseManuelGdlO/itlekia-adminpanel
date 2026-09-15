@@ -13,6 +13,7 @@ export default function KanbanColumn({
   isAdmin = false,
   onRename,
   onDelete,
+  onOpenTask,
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(column.name);
@@ -117,6 +118,7 @@ export default function KanbanColumn({
             task={task}
             columnPosition={column.position}
             draggable={!canDragTask || canDragTask(task)}
+            onOpen={onOpenTask}
           />
         ))}
       </div>

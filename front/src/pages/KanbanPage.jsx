@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { DndContext } from '@dnd-kit/core';
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext } from '@dnd-kit/sortable';
 import * as tasksApi from '../api/tasks';
 import * as projectsApi from '../api/projects';
@@ -7,6 +7,7 @@ import * as columnsApi from '../api/columns';
 import { useAuth } from '../context/AuthContext';
 import KanbanColumn from '../components/kanban/KanbanColumn';
 import TaskFormModal from '../components/kanban/TaskFormModal';
+import TaskDetailModal from '../components/tasks/TaskDetailModal';
 
 export function rollbackTaskColumn(tasks, taskId, previousColumnId) {
   if (!tasks.some((task) => task.id === taskId)) return tasks;
@@ -26,8 +27,10 @@ export default function KanbanPage() {
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState('');
   const [error, setError] = useState('');
+  const [openTask, setOpenTask] = useState(null);
   const selectedProjectIdRef = useRef(selectedProjectId);
   selectedProjectIdRef.current = selectedProjectId;
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   useEffect(() => {
     projectsApi.listProjects().then((data) => {
@@ -190,7 +193,7 @@ export default function KanbanPage() {
           )}
         </div>
       )}
-      <DndContext onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto">
           <SortableContext items={columns.map((column) => `column:${column.id}`)}>
             {columns.map((column) => (
@@ -202,6 +205,7 @@ export default function KanbanPage() {
                 isAdmin={user.role === 'admin'}
                 onRename={(name) => handleRenameColumn(column.id, name)}
                 onDelete={() => handleDeleteColumn(column.id)}
+                onOpenTask={setOpenTask}
               />
             ))}
           </SortableContext>
@@ -227,6 +231,7 @@ export default function KanbanPage() {
           )}
         </div>
       </DndContext>
+      <TaskDetailModal task={openTask} onClose={() => setOpenTask(null)} />
     </div>
   );
 }

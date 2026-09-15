@@ -193,8 +193,22 @@
     color: inherit;
 }
 
-.task-description-html .tiptap {
-    min-height: 8rem;
+.task-description-html .tiptap,
+.task-description-html .ProseMirror {
+    min-height: 12rem;
+    outline: none;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    user-select: text;
+    caret-color: currentColor;
+}
+
+.task-description-html .ProseMirror p.is-editor-empty:first-child::before {
+    color: var(--muted-foreground);
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
