@@ -112,6 +112,29 @@ describe('features routes', () => {
     expect(invalidUpdate.body).toEqual({ error: 'Invalid status' });
   });
 
+  it('rejects missing, empty, and whitespace-only titles on create and update', async () => {
+    for (const title of [undefined, '', '   ']) {
+      const response = await request(app)
+        .post(`/projects/${project.id}/features`)
+        .set('Cookie', adminCookie)
+        .send(title === undefined ? {} : { title });
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'Invalid title' });
+    }
+
+    const created = await request(app)
+      .post(`/projects/${project.id}/features`)
+      .set('Cookie', adminCookie)
+      .send({ title: 'Valid' });
+    const updated = await request(app)
+      .put(`/projects/${project.id}/features/${created.body.id}`)
+      .set('Cookie', adminCookie)
+      .send({ title: '   ' });
+
+    expect(updated.status).toBe(400);
+    expect(updated.body).toEqual({ error: 'Invalid title' });
+  });
+
   it('updates optional fields and deletes a project feature', async () => {
     const created = await request(app)
       .post(`/projects/${project.id}/features`)

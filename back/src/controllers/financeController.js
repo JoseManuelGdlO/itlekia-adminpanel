@@ -67,6 +67,9 @@ async function create(req, res) {
   const project = await loadProject(req, res);
   if (!project) return;
   const { kind, title, notes } = req.body;
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ error: 'Invalid title' });
+  }
   if (!KINDS.includes(kind)) {
     return res.status(400).json({ error: 'Invalid kind' });
   }
@@ -106,6 +109,12 @@ async function update(req, res) {
   if (!item) return;
   let oldStoredName;
   let newStoredName;
+  if (
+    req.body.title !== undefined &&
+    (typeof req.body.title !== 'string' || !req.body.title.trim())
+  ) {
+    return res.status(400).json({ error: 'Invalid title' });
+  }
   if (req.body.kind !== undefined) {
     if (!KINDS.includes(req.body.kind)) {
       return res.status(400).json({ error: 'Invalid kind' });

@@ -59,4 +59,16 @@ describe('FinanceItem model', () => {
       })
     ).rejects.toThrow();
   });
+
+  it('rejects an empty title', async () => {
+    await expect(
+      FinanceItem.create({
+        projectId: project.id,
+        kind: 'cost',
+        title: '',
+        amount: 1,
+        createdBy: admin.id,
+      })
+    ).rejects.toThrow();
+  });
 });

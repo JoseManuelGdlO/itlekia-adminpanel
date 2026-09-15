@@ -12,7 +12,11 @@ module.exports = (sequelize) => {
           isIn: { args: [['cost', 'contract', 'budget']], msg: 'Invalid kind' },
         },
       },
-      title: { type: DataTypes.STRING, allowNull: false },
+      title: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        validate: { notEmpty: true },
+      },
       amount: {
         type: DataTypes.DECIMAL(12, 2),
         allowNull: false,

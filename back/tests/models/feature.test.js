@@ -45,4 +45,21 @@ describe('Feature model', () => {
       })
     ).rejects.toThrow();
   });
+
+  it('rejects an empty title', async () => {
+    const project = await Project.create({ name: 'C' });
+    const admin = await User.create({
+      name: 'A3',
+      email: 'a3@example.com',
+      passwordHash: 'x',
+      role: 'admin',
+    });
+    await expect(
+      Feature.create({
+        projectId: project.id,
+        userId: admin.id,
+        title: '',
+      })
+    ).rejects.toThrow();
+  });
 });

@@ -4,7 +4,11 @@ module.exports = (sequelize) => {
   const Feature = sequelize.define('Feature', {
     projectId: { type: DataTypes.INTEGER, allowNull: false },
     userId: { type: DataTypes.INTEGER, allowNull: false },
-    title: { type: DataTypes.STRING, allowNull: false },
+    title: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: { notEmpty: true },
+    },
     description: { type: DataTypes.TEXT, allowNull: true },
     status: {
       type: DataTypes.ENUM('pending', 'done'),

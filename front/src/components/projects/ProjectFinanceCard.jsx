@@ -13,6 +13,7 @@ const EMPTY_FORM = { title: '', amount: '', notes: '', file: null };
 
 export default function ProjectFinanceCard({ projectId }) {
   const [items, setItems] = useState([]);
+  const [error, setError] = useState('');
   const [forms, setForms] = useState(() =>
     Object.fromEntries(SECTIONS.map(({ kind }) => [kind, { ...EMPTY_FORM }]))
   );
@@ -20,6 +21,7 @@ export default function ProjectFinanceCard({ projectId }) {
   useEffect(() => {
     let ignore = false;
     setItems([]);
+    setError('');
 
     financeApi.listFinance(projectId).then((data) => {
       if (!ignore) setItems(data);
@@ -39,6 +41,7 @@ export default function ProjectFinanceCard({ projectId }) {
 
   async function handleAdd(event, kind) {
     event.preventDefault();
+    setError('');
     const form = forms[kind];
     const formData = new FormData();
     formData.append('kind', kind);
@@ -47,14 +50,23 @@ export default function ProjectFinanceCard({ projectId }) {
     formData.append('notes', form.notes);
     if (form.file) formData.append('file', form.file);
 
-    const created = await financeApi.createFinance(projectId, formData);
-    setItems((current) => [...current, created]);
-    setForms((current) => ({ ...current, [kind]: { ...EMPTY_FORM } }));
+    try {
+      const created = await financeApi.createFinance(projectId, formData);
+      setItems((current) => [...current, created]);
+      setForms((current) => ({ ...current, [kind]: { ...EMPTY_FORM } }));
+    } catch {
+      setError('No se pudo guardar');
+    }
   }
 
   async function handleDelete(itemId) {
-    await financeApi.deleteFinance(projectId, itemId);
-    setItems((current) => current.filter((item) => item.id !== itemId));
+    setError('');
+    try {
+      await financeApi.deleteFinance(projectId, itemId);
+      setItems((current) => current.filter((item) => item.id !== itemId));
+    } catch {
+      setError('No se pudo quitar');
+    }
   }
 
   return (
@@ -62,7 +74,13 @@ export default function ProjectFinanceCard({ projectId }) {
       <CardHeader>
         <CardTitle>Finanzas</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-6 lg:grid-cols-3">
+      <CardContent>
+        {error && (
+          <p role="alert" className="mb-3 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div className="grid gap-6 lg:grid-cols-3">
         {SECTIONS.map(({ kind, heading }) => {
           const sectionItems = items.filter((item) => item.kind === kind);
           const total = sectionItems.reduce((sum, item) => sum + Number(item.amount), 0);
@@ -77,6 +95,7 @@ export default function ProjectFinanceCard({ projectId }) {
                 </label>
                 <input
                   id={`finance-title-${kind}`}
+                  required
                   value={form.title}
                   onChange={(event) => updateForm(kind, 'title', event.target.value)}
                   className="w-full rounded-md border border-input bg-card px-2 py-1.5 text-sm"
@@ -88,6 +107,7 @@ export default function ProjectFinanceCard({ projectId }) {
                   id={`finance-amount-${kind}`}
                   type="number"
                   step="any"
+                  required
                   value={form.amount}
                   onChange={(event) => updateForm(kind, 'amount', event.target.value)}
                   className="w-full rounded-md border border-input bg-card px-2 py-1.5 text-sm"
@@ -160,6 +180,7 @@ export default function ProjectFinanceCard({ projectId }) {
             </section>
           );
         })}
+        </div>
       </CardContent>
     </Card>
   );

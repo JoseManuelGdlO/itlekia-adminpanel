@@ -43,6 +43,9 @@ async function create(req, res) {
   const project = await loadProject(req, res);
   if (!project) return;
   const { title, description, status, isReminder, remindAt } = req.body;
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ error: 'Invalid title' });
+  }
   if (status !== undefined && !STATUSES.includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }
@@ -64,6 +67,9 @@ async function update(req, res) {
   const feature = await loadFeature(req, res, project);
   if (!feature) return;
   const { title, description, status, isReminder, remindAt } = req.body;
+  if (title !== undefined && (typeof title !== 'string' || !title.trim())) {
+    return res.status(400).json({ error: 'Invalid title' });
+  }
   if (status !== undefined && !STATUSES.includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }

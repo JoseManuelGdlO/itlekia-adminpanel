@@ -91,6 +91,35 @@ describe('finance routes', () => {
     expect(kind.body).toEqual({ error: 'Invalid kind' });
   });
 
+  it('rejects missing, empty, and whitespace-only titles on create and update', async () => {
+    for (const title of [undefined, '', '   ']) {
+      let requestBuilder = request(app)
+        .post(`/projects/${project.id}/finance`)
+        .set('Cookie', adminCookie)
+        .field('kind', 'cost')
+        .field('amount', '1');
+      if (title !== undefined) requestBuilder = requestBuilder.field('title', title);
+
+      const response = await requestBuilder;
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'Invalid title' });
+    }
+
+    const created = await request(app)
+      .post(`/projects/${project.id}/finance`)
+      .set('Cookie', adminCookie)
+      .field('kind', 'cost')
+      .field('title', 'Valid')
+      .field('amount', '1');
+    const updated = await request(app)
+      .put(`/projects/${project.id}/finance/${created.body.id}`)
+      .set('Cookie', adminCookie)
+      .field('title', '   ');
+
+    expect(updated.status).toBe(400);
+    expect(updated.body).toEqual({ error: 'Invalid title' });
+  });
+
   it('uploads a pdf, downloads it, and 404s when there is no file', async () => {
     const created = await request(app)
       .post(`/projects/${project.id}/finance`)

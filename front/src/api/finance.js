@@ -15,13 +15,19 @@ export async function deleteFinance(projectId, itemId) {
 }
 
 export async function downloadFinanceFile(projectId, itemId, fileName) {
-  const res = await api.get(`/projects/${projectId}/finance/${itemId}/file`, {
-    responseType: 'blob',
-  });
-  const url = URL.createObjectURL(res.data);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName || 'file';
-  a.click();
-  URL.revokeObjectURL(url);
+  try {
+    const res = await api.get(`/projects/${projectId}/finance/${itemId}/file`, {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName || 'file';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  } catch (error) {
+    throw error;
+  }
 }
