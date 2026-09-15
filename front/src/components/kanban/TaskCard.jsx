@@ -29,7 +29,7 @@ export default function TaskCard({ task, draggable = true }) {
       }`}
     >
       <div className="flex items-start gap-2">
-        <span className={`mt-1 size-2 shrink-0 rounded-full ${DOT[task.status] || DOT.todo}`} />
+        <span className={`mt-1 size-2 shrink-0 rounded-full ${DOT.todo}`} />
         <Link to={`/tasks/${task.id}`} onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">
           {task.title}
         </Link>

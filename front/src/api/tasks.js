@@ -10,8 +10,8 @@ export async function createTask(data) {
   return res.data;
 }
 
-export async function updateTaskStatus(id, status) {
-  const res = await api.patch(`/tasks/${id}/status`, { status });
+export async function updateTaskColumn(id, columnId) {
+  const res = await api.patch(`/tasks/${id}/column`, { columnId });
   return res.data;
 }
 

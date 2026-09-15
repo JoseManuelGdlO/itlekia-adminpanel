@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 import { DndContext } from '@dnd-kit/core';
 import * as tasksApi from '../api/tasks';
 import * as projectsApi from '../api/projects';
+import * as columnsApi from '../api/columns';
 import { useAuth } from '../context/AuthContext';
 import KanbanColumn from '../components/kanban/KanbanColumn';
 import TaskFormModal from '../components/kanban/TaskFormModal';
-
-const STATUSES = ['todo', 'in_progress', 'review', 'done'];
 
 export default function KanbanPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [projects, setProjects] = useState([]);
   const [members, setMembers] = useState([]);
+  const [columns, setColumns] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
 
   useEffect(() => {
@@ -26,6 +26,7 @@ export default function KanbanPage() {
   useEffect(() => {
     let ignore = false;
     setMembers([]);
+    setColumns([]);
 
     if (!selectedProjectId) {
       return () => {
@@ -35,6 +36,9 @@ export default function KanbanPage() {
 
     projectsApi.listMembers(selectedProjectId).then((data) => {
       if (!ignore) setMembers(data);
+    });
+    columnsApi.listColumns(selectedProjectId).then((data) => {
+      if (!ignore) setColumns(data);
     });
 
     return () => {
@@ -47,12 +51,12 @@ export default function KanbanPage() {
     if (!over) return;
 
     const taskId = Number(active.id);
-    const newStatus = over.id;
+    const newColumnId = Number(over.id);
 
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, columnId: newColumnId } : t)));
 
     try {
-      await tasksApi.updateTaskStatus(taskId, newStatus);
+      await tasksApi.updateTaskColumn(taskId, newColumnId);
     } catch {
       tasksApi.listTasks().then(setTasks);
     }
@@ -71,18 +75,25 @@ export default function KanbanPage() {
   return (
     <div className="p-6">
       {projects.length > 0 && (
-        <div className="mb-4 flex items-center justify-end gap-2">
-          <select
-            value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="rounded-md border border-input bg-card px-2 py-2 text-sm"
-          >
+        <div className="mb-4 flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto" role="tablist">
             {projects.map((project) => (
-              <option key={project.id} value={String(project.id)}>
+              <button
+                key={project.id}
+                type="button"
+                role="tab"
+                aria-selected={String(selectedProjectId) === String(project.id)}
+                onClick={() => setSelectedProjectId(String(project.id))}
+                className={`shrink-0 rounded-md px-3 py-2 text-sm ${
+                  String(selectedProjectId) === String(project.id)
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground'
+                }`}
+              >
                 {project.name}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
           {selectedProjectId && (
             <TaskFormModal projectId={selectedProjectId} users={members} onCreated={handleTaskCreated} />
           )}
@@ -90,11 +101,11 @@ export default function KanbanPage() {
       )}
       <DndContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto">
-          {STATUSES.map((status) => (
+          {columns.map((column) => (
             <KanbanColumn
-              key={status}
-              status={status}
-              tasks={visibleTasks.filter((t) => t.status === status)}
+              key={column.id}
+              column={column}
+              tasks={visibleTasks.filter((t) => String(t.columnId) === String(column.id))}
               canDragTask={canDragTask}
             />
           ))}

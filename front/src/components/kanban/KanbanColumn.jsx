@@ -1,15 +1,8 @@
 import { useDroppable } from '@dnd-kit/core';
 import TaskCard from './TaskCard';
 
-const COLUMN_LABELS = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  review: 'Review',
-  done: 'Done',
-};
-
-export default function KanbanColumn({ status, tasks, canDragTask }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
+export default function KanbanColumn({ column, tasks, canDragTask }) {
+  const { setNodeRef, isOver } = useDroppable({ id: String(column.id) });
 
   return (
     <div
@@ -19,7 +12,7 @@ export default function KanbanColumn({ status, tasks, canDragTask }) {
       }`}
     >
       <h2 className="mb-2 flex items-center justify-between text-sm font-semibold">
-        <span>{COLUMN_LABELS[status]}</span>
+        <span>{column.name}</span>
         <span className="text-xs font-normal text-muted-foreground">{tasks.length}</span>
       </h2>
       <div className="space-y-2">

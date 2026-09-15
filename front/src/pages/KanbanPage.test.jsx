@@ -5,6 +5,14 @@ import { AuthContext } from '../context/AuthContext';
 import KanbanPage from './KanbanPage';
 import * as tasksApi from '../api/tasks';
 import * as projectsApi from '../api/projects';
+import * as columnsApi from '../api/columns';
+
+const defaultColumns = [
+  { id: 11, name: 'To Do', position: 0, projectId: 1 },
+  { id: 12, name: 'In Progress', position: 1, projectId: 1 },
+  { id: 13, name: 'Review', position: 2, projectId: 1 },
+  { id: 14, name: 'Done', position: 3, projectId: 1 },
+];
 
 function renderAs(role, userId = 1) {
   return render(
@@ -17,15 +25,16 @@ function renderAs(role, userId = 1) {
 }
 
 describe('KanbanPage', () => {
-  it('groups fetched tasks for the selected project into status columns', async () => {
+  it('groups fetched tasks for the selected project into API columns', async () => {
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([
-      { id: 1, title: 'Build homepage', status: 'todo', projectId: 1, assigneeId: 1 },
-      { id: 2, title: 'Fix nav bug', status: 'in_progress', projectId: 1, assigneeId: 1 },
-      { id: 3, title: 'QA pass', status: 'done', projectId: 1, assigneeId: 2 },
-      { id: 4, title: 'Other project card', status: 'todo', projectId: 2, assigneeId: 1 },
+      { id: 1, title: 'Build homepage', columnId: 11, projectId: 1, assigneeId: 1 },
+      { id: 2, title: 'Fix nav bug', columnId: 12, projectId: 1, assigneeId: 1 },
+      { id: 3, title: 'QA pass', columnId: 14, projectId: 1, assigneeId: 2 },
+      { id: 4, title: 'Other project card', columnId: 11, projectId: 2, assigneeId: 1 },
     ]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([{ id: 1, name: 'Project Alpha' }]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
 
     renderAs('developer');
 
@@ -39,22 +48,23 @@ describe('KanbanPage', () => {
     expect(screen.getByText('Done')).toBeInTheDocument();
   });
 
-  it('lets a developer pick a project and create a task', async () => {
+  it('lets a developer pick a project via tabs', async () => {
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([
       { id: 1, name: 'Project Alpha' },
       { id: 2, name: 'Project Beta' },
     ]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([]);
 
     renderAs('developer');
 
-    const select = await screen.findByRole('combobox');
-    await waitFor(() => expect(select).toHaveValue('1'));
+    const alpha = await screen.findByRole('tab', { name: 'Project Alpha' });
+    expect(alpha).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Project Beta' }));
+    expect(screen.getByRole('tab', { name: 'Project Beta' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Nueva tarea')).toBeInTheDocument();
-
-    fireEvent.change(select, { target: { value: '2' } });
-    expect(select).toHaveValue('2');
   });
 
   it('clears members on project switch and ignores an out-of-order response', async () => {
@@ -76,20 +86,22 @@ describe('KanbanPage', () => {
       .mockResolvedValueOnce([{ id: 11, name: 'Alpha Developer' }])
       .mockImplementationOnce(() => betaMembers)
       .mockImplementationOnce(() => currentAlphaMembers);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([]);
 
     renderAs('developer');
 
-    const projectSelect = await screen.findByRole('combobox');
+    const alphaTab = await screen.findByRole('tab', { name: 'Project Alpha' });
+    const betaTab = screen.getByRole('tab', { name: 'Project Beta' });
     await waitFor(() => expect(projectsApi.listMembers).toHaveBeenCalledWith('1'));
     fireEvent.click(screen.getByText('Nueva tarea'));
 
     expect(await screen.findByRole('option', { name: 'Alpha Developer' })).toBeInTheDocument();
 
-    fireEvent.change(projectSelect, { target: { value: '2' } });
+    fireEvent.click(betaTab);
     await waitFor(() => expect(projectsApi.listMembers).toHaveBeenCalledWith('2'));
     expect(screen.queryByRole('option', { name: 'Alpha Developer' })).not.toBeInTheDocument();
 
-    fireEvent.change(projectSelect, { target: { value: '1' } });
+    fireEvent.click(alphaTab);
     await waitFor(() => expect(projectsApi.listMembers).toHaveBeenCalledTimes(3));
 
     await act(async () => {
@@ -105,11 +117,12 @@ describe('KanbanPage', () => {
 
   it('lets a developer drag only their own task card', async () => {
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([
-      { id: 1, title: 'Own card', status: 'todo', projectId: 1, assigneeId: '7' },
-      { id: 2, title: 'Teammate card', status: 'todo', projectId: 1, assigneeId: 8 },
+      { id: 1, title: 'Own card', columnId: 11, projectId: 1, assigneeId: '7' },
+      { id: 2, title: 'Teammate card', columnId: 11, projectId: 1, assigneeId: 8 },
     ]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([{ id: 1, name: 'Project Alpha' }]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
 
     renderAs('developer', 7);
 
@@ -122,20 +135,21 @@ describe('KanbanPage', () => {
     expect(teammateCard).not.toHaveAttribute('tabindex');
   });
 
-  it('lets an admin pick which project the dropdown is showing', async () => {
+  it('lets an admin pick which project tab is showing', async () => {
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([
       { id: 1, name: 'Project Alpha' },
       { id: 2, name: 'Project Beta' },
     ]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([]);
 
     renderAs('admin');
 
-    const select = await screen.findByRole('combobox');
-    await waitFor(() => expect(select).toHaveValue('1'));
-    fireEvent.change(select, { target: { value: '2' } });
-    expect(select).toHaveValue('2');
+    const alpha = await screen.findByRole('tab', { name: 'Project Alpha' });
+    expect(alpha).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('tab', { name: 'Project Beta' }));
+    expect(screen.getByRole('tab', { name: 'Project Beta' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Nueva tarea')).toBeInTheDocument();
   });
 });
