@@ -206,6 +206,7 @@ export default function KanbanPage() {
                 onRename={(name) => handleRenameColumn(column.id, name)}
                 onDelete={() => handleDeleteColumn(column.id)}
                 onOpenTask={setOpenTask}
+                members={members}
               />
             ))}
           </SortableContext>

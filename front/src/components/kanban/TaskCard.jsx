@@ -2,7 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 
 const DOTS = ['bg-muted-foreground', 'bg-primary', 'bg-rail', 'bg-teal-soft'];
 
-export default function TaskCard({ task, columnPosition, draggable = true, onOpen }) {
+export default function TaskCard({ task, columnPosition, draggable = true, onOpen, assigneeName = 'Sin asignar' }) {
   const { listeners, setNodeRef, transform } = useDraggable({
     id: `task:${task.id}`,
     data: { type: 'task' },
@@ -34,6 +34,7 @@ export default function TaskCard({ task, columnPosition, draggable = true, onOpe
           {task.title}
         </button>
       </div>
+      <p className="mt-1 pl-4 text-xs text-muted-foreground">{assigneeName}</p>
     </div>
   );
 }

@@ -14,6 +14,7 @@ export default function KanbanColumn({
   onRename,
   onDelete,
   onOpenTask,
+  members = [],
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(column.name);
@@ -119,6 +120,10 @@ export default function KanbanColumn({
             columnPosition={column.position}
             draggable={!canDragTask || canDragTask(task)}
             onOpen={onOpenTask}
+            assigneeName={
+              members.find((member) => String(member.id) === String(task.assigneeId))?.name
+              || 'Sin asignar'
+            }
           />
         ))}
       </div>

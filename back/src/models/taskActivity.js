@@ -5,12 +5,12 @@ module.exports = (sequelize) => {
     taskId: { type: DataTypes.INTEGER, allowNull: false },
     userId: { type: DataTypes.INTEGER, allowNull: false },
     type: {
-      type: DataTypes.ENUM('created', 'status_changed'),
+      type: DataTypes.ENUM('created', 'status_changed', 'assignee_changed'),
       allowNull: false,
       validate: {
         isIn: {
-          args: [['created', 'status_changed']],
-          msg: 'Type must be created or status_changed',
+          args: [['created', 'status_changed', 'assignee_changed']],
+          msg: 'Type must be created, status_changed, or assignee_changed',
         },
       },
     },

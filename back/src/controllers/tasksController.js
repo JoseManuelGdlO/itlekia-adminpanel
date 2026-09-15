@@ -196,6 +196,19 @@ async function update(req, res) {
   }
 
   await task.save();
+  if (Number(task.assigneeId) !== Number(previousAssigneeId)) {
+    const [fromUser, toUser] = await Promise.all([
+      previousAssigneeId ? User.findByPk(previousAssigneeId) : null,
+      task.assigneeId ? User.findByPk(task.assigneeId) : null,
+    ]);
+    await TaskActivity.create({
+      taskId: task.id,
+      userId: req.user.id,
+      type: 'assignee_changed',
+      fromStatus: fromUser?.name || 'Sin asignar',
+      toStatus: toUser?.name || 'Sin asignar',
+    });
+  }
   if (
     task.assigneeId != null
     && Number(task.assigneeId) !== Number(previousAssigneeId)
@@ -260,7 +273,9 @@ async function listActivities(req, res) {
       fromStatus: row.fromStatus,
       toStatus: row.toStatus,
       createdAt: row.createdAt,
-      user: { id: row.user.id, name: row.user.name },
+      user: row.user
+        ? { id: row.user.id, name: row.user.name }
+        : { id: row.userId, name: 'Usuario' },
     }))
   );
 }

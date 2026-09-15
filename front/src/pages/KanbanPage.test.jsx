@@ -382,4 +382,21 @@ describe('KanbanPage', () => {
     expect(screen.getByText('Historial')).toBeInTheDocument();
     expect(document.querySelector('[data-slot="dialog-content"]')).toHaveClass('sm:max-w-4xl');
   });
+
+  it('shows the assignee name on each kanban card', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([
+      { id: 9, title: 'Own card', columnId: 11, projectId: 1, assigneeId: 7 },
+      { id: 10, title: 'Open card', columnId: 11, projectId: 1, assigneeId: null },
+    ]);
+    vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValue([]);
+    vi.spyOn(notesApi, 'listNotes').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha' }]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([{ id: 7, name: 'Ada' }]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
+
+    renderAs('admin');
+
+    expect(await screen.findByText('Ada')).toBeInTheDocument();
+    expect(screen.getByText('Sin asignar')).toBeInTheDocument();
+  });
 });

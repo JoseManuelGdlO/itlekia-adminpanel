@@ -78,4 +78,64 @@ describe('task activities routes', () => {
     expect(res.status).toBe(403);
     expect(res.body).toEqual({ error: 'Forbidden' });
   });
+
+  it('still lists activities when the actor user is missing', async () => {
+    const isolated = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Orphan historial' });
+    expect(isolated.status).toBe(201);
+
+    await sequelize.query('PRAGMA foreign_keys = OFF');
+    await sequelize.getQueryInterface().bulkInsert('TaskActivities', [
+      {
+        taskId: isolated.body.id,
+        userId: 99999,
+        type: 'created',
+        fromStatus: null,
+        toStatus: 'To Do',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    await sequelize.query('PRAGMA foreign_keys = ON');
+
+    const res = await request(app)
+      .get(`/tasks/${isolated.body.id}/activities`)
+      .set('Cookie', adminCookie);
+    expect(res.status).toBe(200);
+    const orphan = res.body.find((row) => row.user && (row.user.name === 'Usuario' || row.user.id === 99999));
+    expect(orphan).toBeDefined();
+  });
+
+  it('records an assignee change in the historial', async () => {
+    const other = await User.create({
+      name: 'Luis',
+      email: 'luis-act@example.com',
+      passwordHash: 'x',
+      role: 'developer',
+    });
+    await ProjectMember.create({ projectId: project.id, userId: other.id });
+
+    const fresh = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Reassign me', assigneeId: other.id });
+    expect(fresh.status).toBe(201);
+
+    const columns = await BoardColumn.findAll({
+      where: { projectId: project.id },
+      order: [['position', 'ASC']],
+    });
+    const developerUser = await User.findOne({ where: { email: 'dev@example.com' } });
+    const changed = await request(app)
+      .put(`/tasks/${fresh.body.id}`)
+      .set('Cookie', adminCookie)
+      .send({ assigneeId: developerUser.id });
+    expect(changed.status).toBe(200);
+
+    const res = await request(app).get(`/tasks/${fresh.body.id}/activities`).set('Cookie', adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.some((row) => row.type === 'assignee_changed')).toBe(true);
+  });
 });

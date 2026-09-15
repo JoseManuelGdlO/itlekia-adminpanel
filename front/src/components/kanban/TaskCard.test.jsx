@@ -21,4 +21,35 @@ describe('TaskCard', () => {
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: 9 }));
     expect(screen.queryByRole('link', { name: 'Teammate card' })).not.toBeInTheDocument();
   });
+
+  it('shows who the task is assigned to', () => {
+    render(
+      <DndContext>
+        <TaskCard
+          task={{ id: 9, title: 'Teammate card', assigneeId: 8 }}
+          assigneeName="Luis"
+          columnPosition={0}
+          draggable={false}
+        />
+      </DndContext>
+    );
+
+    expect(screen.getByText('Luis')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Teammate card' })).toBeInTheDocument();
+  });
+
+  it('shows Sin asignar when nobody is assigned', () => {
+    render(
+      <DndContext>
+        <TaskCard
+          task={{ id: 9, title: 'Open card' }}
+          assigneeName="Sin asignar"
+          columnPosition={0}
+          draggable={false}
+        />
+      </DndContext>
+    );
+
+    expect(screen.getByText('Sin asignar')).toBeInTheDocument();
+  });
 });

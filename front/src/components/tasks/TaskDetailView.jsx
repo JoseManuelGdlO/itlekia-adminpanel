@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as tasksApi from '../../api/tasks';
 import * as notesApi from '../../api/notes';
+import * as projectsApi from '../../api/projects';
 import NotesList from '../notes/NotesList';
 import NoteFormModal from '../notes/NoteFormModal';
 import PageSkeleton from '../PageSkeleton';
@@ -9,23 +10,32 @@ import TaskDescriptionEditor from './TaskDescriptionEditor';
 import { useAuth } from '../../context/AuthContext';
 import { sanitizeTaskHtml } from '../../lib/sanitizeTaskHtml';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function formatActivity(item) {
+  const name = item.user?.name || 'Alguien';
   if (item.type === 'created') {
-    return `${item.user.name} creó la tarea`;
+    return `${name} creó la tarea`;
   }
-  return `${item.user.name} movió ${item.fromStatus} → ${item.toStatus}`;
+  if (item.type === 'assignee_changed') {
+    return `${name} asignó ${item.fromStatus || 'Sin asignar'} → ${item.toStatus || 'Sin asignar'}`;
+  }
+  return `${name} movió ${item.fromStatus} → ${item.toStatus}`;
 }
 
 export default function TaskDetailView({ taskId, embedded = false }) {
   const { user } = useAuth();
   const [task, setTask] = useState(null);
   const [description, setDescription] = useState('');
+  const [assigneeId, setAssigneeId] = useState('');
+  const [members, setMembers] = useState([]);
   const [error, setError] = useState('');
   const [notes, setNotes] = useState([]);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const canAssign = user?.role === 'admin';
 
   useEffect(() => {
     setLoading(true);
@@ -35,10 +45,14 @@ export default function TaskDetailView({ taskId, embedded = false }) {
         const loadedTask = tasks.find((t) => String(t.id) === String(taskId)) || null;
         setTask(loadedTask);
         setDescription(loadedTask?.description || '');
+        setAssigneeId(loadedTask?.assigneeId ?? '');
+        if (loadedTask?.projectId) {
+          projectsApi.listMembers(loadedTask.projectId).then(setMembers).catch(() => setMembers([]));
+        }
       })
       .finally(() => setLoading(false));
-    notesApi.listNotes({ taskId }).then(setNotes);
-    tasksApi.listTaskActivities(taskId).then(setActivities);
+    notesApi.listNotes({ taskId }).then(setNotes).catch(() => setNotes([]));
+    tasksApi.listTaskActivities(taskId).then(setActivities).catch(() => setActivities([]));
   }, [taskId]);
 
   function handleNoteCreated(note) {
@@ -61,11 +75,27 @@ export default function TaskDetailView({ taskId, embedded = false }) {
     }
   }
 
+  async function handleAssigneeChange(nextId) {
+    setAssigneeId(nextId);
+    setError('');
+    try {
+      const saved = await tasksApi.updateTask(task.id, { assigneeId: nextId === '' ? null : Number(nextId) });
+      setTask((previous) => ({ ...previous, ...saved }));
+      const nextActivities = await tasksApi.listTaskActivities(task.id);
+      setActivities(nextActivities);
+    } catch (err) {
+      setAssigneeId(task.assigneeId ?? '');
+      setError(err.response?.data?.error || err.message);
+    }
+  }
+
   if (loading) return <PageSkeleton />;
   if (!task) return <div className="text-sm text-muted-foreground">No se encontró</div>;
 
   const canEditDescription =
     user?.role === 'admin' || String(user?.id) === String(task.assigneeId);
+  const assigneeName =
+    members.find((member) => String(member.id) === String(task.assigneeId))?.name || 'Sin asignar';
 
   return (
     <div className={embedded ? 'space-y-4' : 'space-y-6 p-6'}>
@@ -92,6 +122,26 @@ export default function TaskDetailView({ taskId, embedded = false }) {
             className="task-description-html text-sm text-muted-foreground"
             dangerouslySetInnerHTML={{ __html: sanitizeTaskHtml(task.description) }}
           />
+        )}
+        {canAssign ? (
+          <div className="mt-3 space-y-1">
+            <Label htmlFor="assignee">Asignar a</Label>
+            <select
+              id="assignee"
+              value={assigneeId === null || assigneeId === undefined ? '' : String(assigneeId)}
+              onChange={(e) => handleAssigneeChange(e.target.value)}
+              className="w-full rounded border px-2 py-2 text-sm"
+            >
+              <option value="">Sin asignar</option>
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">Asignado a: {assigneeName}</p>
         )}
       </div>
       <Card className="shadow-card">

@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import TaskDetailPage from './TaskDetailPage';
 import * as tasksApi from '../api/tasks';
 import * as notesApi from '../api/notes';
+import * as projectsApi from '../api/projects';
 import { AuthContext } from '../context/AuthContext';
 
 vi.mock('../components/tasks/TaskDescriptionEditor', () => ({
@@ -139,5 +140,67 @@ describe('TaskDetailPage', () => {
 
     expect(await screen.findByText('No se pudo guardar')).toBeInTheDocument();
     expect(editor).toHaveValue('<p>Previous</p>');
+  });
+
+  it('lets an admin assign the task from the detail view', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([
+      { id: 9, title: 'Build homepage', projectId: 7, assigneeId: null },
+    ]);
+    vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
+    vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([
+      { id: 2, name: 'Luis' },
+    ]);
+    vi.spyOn(tasksApi, 'updateTask').mockResolvedValueOnce({
+      id: 9,
+      projectId: 7,
+      assigneeId: 2,
+    });
+
+    renderPage();
+
+    expect(await screen.findByLabelText('Asignar a')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Asignar a'), { target: { value: '2' } });
+
+    await waitFor(() => {
+      expect(tasksApi.updateTask).toHaveBeenCalledWith(9, { assigneeId: 2 });
+    });
+  });
+
+  it('hides the assignee picker from a developer', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([
+      {
+        id: 9,
+        title: 'Build homepage',
+        projectId: 7,
+        assigneeId: 7,
+        description: '<p>Hi</p>',
+      },
+    ]);
+    vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
+    vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValueOnce([]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([
+      { id: 7, name: 'Ada' },
+    ]);
+
+    renderPage({ id: 7, role: 'developer' });
+
+    expect(await screen.findByText('Build homepage')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Asignar a')).not.toBeInTheDocument();
+    expect(await screen.findByText('Asignado a: Ada')).toBeInTheDocument();
+  });
+
+  it('still renders historial when an activity has no user', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([
+      { id: 9, title: 'Build homepage' },
+    ]);
+    vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
+    vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValueOnce([
+      { id: 1, type: 'created', fromStatus: null, toStatus: 'To Do', user: null },
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText('Alguien creó la tarea')).toBeInTheDocument();
   });
 });
