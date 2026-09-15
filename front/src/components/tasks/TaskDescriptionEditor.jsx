@@ -63,7 +63,9 @@ export default function TaskDescriptionEditor({
           <button type="button" onClick={() => editor.chain().focus().toggleBold().run()}>N</button>
           <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()}>I</button>
           <button type="button" onClick={() => editor.chain().focus().toggleUnderline().run()}>S</button>
+          <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>H1</button>
           <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</button>
+          <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>H3</button>
           <button type="button" onClick={() => editor.chain().focus().toggleHighlight().run()}>Resaltar</button>
           <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()}>Lista</button>
           <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()}>Lista numerada</button>
