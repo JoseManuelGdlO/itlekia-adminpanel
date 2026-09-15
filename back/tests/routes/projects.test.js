@@ -1,7 +1,7 @@
 process.env.JWT_SECRET = 'test-secret';
 const request = require('supertest');
 const app = require('../../src/app');
-const { sequelize, User, Project, Task, ProjectMember } = require('../../src/models');
+const { sequelize, User, Project, Task, ProjectMember, BoardColumn } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
 
 describe('projects routes', () => {
@@ -52,6 +52,19 @@ describe('projects routes', () => {
       .set('Cookie', adminCookie)
       .send({ name: 'New Project', description: 'desc' });
     expect(res.status).toBe(201);
+  });
+
+  it('admin create seeds To Do, In Progress, Review, Done', async () => {
+    const res = await request(app)
+      .post('/projects')
+      .set('Cookie', adminCookie)
+      .send({ name: 'Boarded', description: 'x' });
+    expect(res.status).toBe(201);
+    const cols = await BoardColumn.findAll({
+      where: { projectId: res.body.id },
+      order: [['position', 'ASC']],
+    });
+    expect(cols.map((c) => c.name)).toEqual(['To Do', 'In Progress', 'Review', 'Done']);
   });
 
   it('developer cannot create a project', async () => {

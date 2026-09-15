@@ -1,5 +1,6 @@
-const { Project } = require('../models');
+const { Project, sequelize } = require('../models');
 const { memberProjectIds } = require('../utils/projectAccess');
+const { seedDefaultColumns } = require('../utils/boardColumns');
 
 async function list(req, res) {
   if (req.user.role === 'admin') {
@@ -20,8 +21,16 @@ async function list(req, res) {
 
 async function create(req, res) {
   const { name, description } = req.body;
-  const project = await Project.create({ name, description });
-  return res.status(201).json(project);
+  const t = await sequelize.transaction();
+  try {
+    const project = await Project.create({ name, description }, { transaction: t });
+    await seedDefaultColumns(project.id, t);
+    await t.commit();
+    return res.status(201).json(project);
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
 }
 
 async function update(req, res) {
