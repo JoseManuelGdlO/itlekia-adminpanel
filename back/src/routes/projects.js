@@ -2,6 +2,7 @@ const express = require('express');
 const controller = require('../controllers/projectsController');
 const members = require('../controllers/membersController');
 const finance = require('../controllers/financeController');
+const features = require('../controllers/featuresController');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { financeUpload } = require('../middleware/financeUpload');
 
@@ -19,6 +20,10 @@ router.post('/:id/finance', requireRole('admin'), financeUpload, finance.create)
 router.put('/:id/finance/:itemId', requireRole('admin'), financeUpload, finance.update);
 router.delete('/:id/finance/:itemId', requireRole('admin'), finance.remove);
 router.get('/:id/finance/:itemId/file', requireRole('admin'), finance.download);
+router.get('/:id/features', features.list);
+router.post('/:id/features', requireRole('admin'), features.create);
+router.put('/:id/features/:featureId', requireRole('admin'), features.update);
+router.delete('/:id/features/:featureId', requireRole('admin'), features.remove);
 router.put('/:id', requireRole('admin'), controller.update);
 router.delete('/:id', requireRole('admin'), controller.remove);
 
