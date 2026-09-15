@@ -50,8 +50,10 @@ async function create(req, res) {
 
   const t = await sequelize.transaction();
   try {
-    const column = await firstColumn(project.id);
-    if (!column) {
+    const column = req.body.columnId !== undefined
+      ? await BoardColumn.findByPk(req.body.columnId)
+      : await firstColumn(project.id);
+    if (!column || column.projectId !== project.id) {
       await t.rollback();
       return res.status(400).json({ error: 'Invalid column' });
     }
@@ -113,14 +115,14 @@ async function update(req, res) {
   return res.json(task);
 }
 
-async function updateStatus(req, res) {
+async function updateColumn(req, res) {
   const task = await Task.findByPk(req.params.id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
   if (!isOwnerOrAdmin(task, req.user)) return res.status(403).json({ error: 'Forbidden' });
-  const raw = req.body.status;
-  const name = { todo: 'To Do', in_progress: 'In Progress', review: 'Review', done: 'Done' }[raw] || raw;
-  const column = await BoardColumn.findOne({ where: { projectId: task.projectId, name } });
-  if (!column) return res.status(400).json({ error: 'Invalid column' });
+  const column = await BoardColumn.findByPk(req.body.columnId);
+  if (!column || column.projectId !== task.projectId) {
+    return res.status(400).json({ error: 'Invalid column' });
+  }
   if (task.columnId === column.id) return res.json(task);
   const from = await BoardColumn.findByPk(task.columnId);
   const t = await sequelize.transaction();
@@ -182,4 +184,4 @@ async function remove(req, res) {
   return res.status(204).send();
 }
 
-module.exports = { list, create, update, updateStatus, listActivities, remove };
+module.exports = { list, create, update, updateColumn, listActivities, remove };

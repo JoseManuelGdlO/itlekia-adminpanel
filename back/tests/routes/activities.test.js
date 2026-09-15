@@ -1,7 +1,7 @@
 process.env.JWT_SECRET = 'test-secret';
 const request = require('supertest');
 const app = require('../../src/app');
-const { sequelize, User, Project, Task, ProjectMember } = require('../../src/models');
+const { sequelize, User, Project, Task, ProjectMember, BoardColumn } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
 const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 
@@ -35,16 +35,21 @@ describe('task activities routes', () => {
   });
 
   it('lists created then status_changed in order', async () => {
+    const columns = await BoardColumn.findAll({
+      where: { projectId: project.id },
+      order: [['position', 'ASC']],
+    });
+    const inProgress = columns[1];
     const moved = await request(app)
-      .patch(`/tasks/${task.id}/status`)
+      .patch(`/tasks/${task.id}/column`)
       .set('Cookie', developerCookie)
-      .send({ status: 'in_progress' });
+      .send({ columnId: inProgress.id });
     expect(moved.status).toBe(200);
 
     const same = await request(app)
-      .patch(`/tasks/${task.id}/status`)
+      .patch(`/tasks/${task.id}/column`)
       .set('Cookie', developerCookie)
-      .send({ status: 'in_progress' });
+      .send({ columnId: inProgress.id });
     expect(same.status).toBe(200);
 
     const res = await request(app).get(`/tasks/${task.id}/activities`).set('Cookie', developerCookie);

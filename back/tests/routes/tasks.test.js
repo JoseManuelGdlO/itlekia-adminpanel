@@ -102,6 +102,32 @@ describe('tasks routes', () => {
     expect(res.status).toBe(201);
   });
 
+  it('creates a task in a provided project column', async () => {
+    const cols = await BoardColumn.findAll({
+      where: { projectId: project.id },
+      order: [['position', 'ASC']],
+    });
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Start in progress', columnId: cols[1].id });
+
+    expect(res.status).toBe(201);
+    expect(res.body.columnId).toBe(cols[1].id);
+  });
+
+  it('rejects a provided create column from another project', async () => {
+    const other = await Project.create({ name: 'Foreign create board' });
+    const [foreignCol] = await seedDefaultColumns(other.id);
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Wrong board', columnId: foreignCol.id });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid column' });
+  });
+
   it('rolls back task creation and returns JSON 500 when activity creation fails', async () => {
     const activitySpy = jest
       .spyOn(TaskActivity, 'create')
@@ -157,21 +183,52 @@ describe('tasks routes', () => {
     expect(res.body).toEqual({ error: 'Assignee must be a project member' });
   });
 
-  it('assignee can PATCH the status of their task', async () => {
+  it('assignee can PATCH the column of their task', async () => {
+    const cols = await BoardColumn.findAll({ where: { projectId: project.id }, order: [['position', 'ASC']] });
+    const inProgress = cols[1];
     const res = await request(app)
-      .patch(`/tasks/${assignedTask.id}/status`)
+      .patch(`/tasks/${assignedTask.id}/column`)
       .set('Cookie', developerCookie)
-      .send({ status: 'in_progress' });
+      .send({ columnId: inProgress.id });
     expect(res.status).toBe(200);
-    expect(res.body.columnId).toBeDefined();
+    expect(res.body.columnId).toBe(inProgress.id);
   });
 
-  it('a different developer cannot PATCH the status of a task not assigned to them', async () => {
+  it('a different developer cannot PATCH the column of a task not assigned to them', async () => {
+    const cols = await BoardColumn.findAll({ where: { projectId: project.id } });
+    const res = await request(app)
+      .patch(`/tasks/${assignedTask.id}/column`)
+      .set('Cookie', otherDeveloperCookie)
+      .send({ columnId: cols[2].id });
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects a column from another project', async () => {
+    const other = await Project.create({ name: 'Other board' });
+    const [foreignCol] = await seedDefaultColumns(other.id);
+    const res = await request(app)
+      .patch(`/tasks/${assignedTask.id}/column`)
+      .set('Cookie', adminCookie)
+      .send({ columnId: foreignCol.id });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid column' });
+  });
+
+  it('rejects a missing column', async () => {
+    const res = await request(app)
+      .patch(`/tasks/${assignedTask.id}/column`)
+      .set('Cookie', adminCookie)
+      .send({ columnId: 999999 });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid column' });
+  });
+
+  it('does not expose PATCH /tasks/:id/status', async () => {
     const res = await request(app)
       .patch(`/tasks/${assignedTask.id}/status`)
-      .set('Cookie', otherDeveloperCookie)
+      .set('Cookie', adminCookie)
       .send({ status: 'done' });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it('a different developer cannot PUT a task not assigned to them', async () => {
