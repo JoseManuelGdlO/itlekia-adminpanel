@@ -65,4 +65,27 @@ describe('TaskFormModal', () => {
       expect.objectContaining({ description: '<p>Hi <strong>there</strong></p>' })
     );
   });
+
+  it('shows the API error and keeps the dialog open when creation fails', async () => {
+    vi.spyOn(tasksApi, 'createTask').mockRejectedValueOnce({
+      response: { data: { error: 'Invalid description' } },
+    });
+    const onCreated = vi.fn();
+
+    render(<TaskFormModal projectId={1} users={[]} onCreated={onCreated} />);
+
+    await act(async () => {
+      screen.getByText('Nueva tarea').click();
+    });
+
+    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Bad task' } });
+
+    await act(async () => {
+      screen.getByText('Guardar').click();
+    });
+
+    expect(await screen.findByText('Invalid description')).toBeInTheDocument();
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Título')).toBeInTheDocument();
+  });
 });

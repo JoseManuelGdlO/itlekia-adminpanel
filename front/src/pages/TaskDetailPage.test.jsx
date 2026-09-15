@@ -81,6 +81,7 @@ describe('TaskDetailPage', () => {
     renderPage({ id: 99, role: 'developer' });
 
     expect(await screen.findByText('there')).toBeInTheDocument();
+    expect(screen.getByText('there').closest('.task-description-html')).not.toBeNull();
     expect(screen.queryByText('Guardar')).not.toBeInTheDocument();
     expect(document.querySelector('script')).not.toBeInTheDocument();
   });

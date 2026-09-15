@@ -18,16 +18,24 @@ export default function TaskFormModal({ projectId, users, onCreated }) {
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [error, setError] = useState('');
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const created = await tasksApi.createTask({
-      projectId,
-      title,
-      description,
-      assigneeId: assigneeId || null,
-      dueDate: dueDate || null,
-    });
+    setError('');
+    let created;
+    try {
+      created = await tasksApi.createTask({
+        projectId,
+        title,
+        description,
+        assigneeId: assigneeId || null,
+        dueDate: dueDate || null,
+      });
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+      return;
+    }
     onCreated(created);
     setOpen(false);
     setTitle('');
@@ -73,6 +81,7 @@ export default function TaskFormModal({ projectId, users, onCreated }) {
             <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
           <Button type="submit">Guardar</Button>
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </form>
       </DialogContent>
     </Dialog>

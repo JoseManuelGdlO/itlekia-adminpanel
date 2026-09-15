@@ -13,6 +13,15 @@ const {
 const { signToken } = require('../../src/utils/jwt');
 const { seedDefaultColumns } = require('../../src/utils/boardColumns');
 const mailer = require('../../src/utils/mailer');
+const { __flushAssignmentEmails } = require('../../src/controllers/tasksController');
+
+function neverResolvingMail() {
+  let release;
+  const promise = new Promise((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+}
 
 describe('tasks routes', () => {
   let adminCookie;
@@ -47,6 +56,11 @@ describe('tasks routes', () => {
       title: 'Not assigned to dev',
       columnId: todoCol.id,
     });
+  });
+
+  // Assignment emails are fire-and-forget, so drain them before the next test spies on the mailer.
+  afterEach(async () => {
+    await __flushAssignmentEmails();
   });
 
   afterAll(async () => {
@@ -166,6 +180,7 @@ describe('tasks routes', () => {
       .set('Cookie', adminCookie)
       .send({ projectId: project.id, title: 'Paged', assigneeId: developer.id });
     expect(assigned.status).toBe(201);
+    await __flushAssignmentEmails();
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0][0].to).toBe('dev@example.com');
     spy.mockClear();
@@ -194,6 +209,7 @@ describe('tasks routes', () => {
       .set('Cookie', adminCookie)
       .send({ assigneeId: otherDeveloper.id });
     expect(changed.status).toBe(200);
+    await __flushAssignmentEmails();
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0][0].to).toBe('dev2@example.com');
     await Task.update(
@@ -211,6 +227,50 @@ describe('tasks routes', () => {
       .send({ projectId: project.id, title: 'Mail fail', assigneeId: developer.id });
     expect(res.status).toBe(201);
     expect(res.body.title).toBe('Mail fail');
+    await __flushAssignmentEmails();
+    spy.mockRestore();
+  });
+
+  it('answers POST /tasks without waiting for the assignment email', async () => {
+    const pending = neverResolvingMail();
+    const spy = jest.spyOn(mailer, 'sendTaskAssignedEmail').mockReturnValue(pending.promise);
+
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Slow mail create', assigneeId: developer.id });
+
+    expect(res.status).toBe(201);
+    expect(res.body.title).toBe('Slow mail create');
+    pending.release();
+    await __flushAssignmentEmails();
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it('answers an assignee-changing PUT /tasks/:id without waiting for the assignment email', async () => {
+    await ProjectMember.findOrCreate({
+      where: { projectId: project.id, userId: otherDeveloper.id },
+    });
+    const task = await Task.create({
+      projectId: project.id,
+      title: 'Slow mail update',
+      assigneeId: developer.id,
+      columnId: todoCol.id,
+    });
+    const pending = neverResolvingMail();
+    const spy = jest.spyOn(mailer, 'sendTaskAssignedEmail').mockReturnValue(pending.promise);
+
+    const res = await request(app)
+      .put(`/tasks/${task.id}`)
+      .set('Cookie', adminCookie)
+      .send({ assigneeId: otherDeveloper.id });
+
+    expect(res.status).toBe(200);
+    expect(res.body.assigneeId).toBe(otherDeveloper.id);
+    pending.release();
+    await __flushAssignmentEmails();
+    expect(spy).toHaveBeenCalledTimes(1);
     spy.mockRestore();
   });
 

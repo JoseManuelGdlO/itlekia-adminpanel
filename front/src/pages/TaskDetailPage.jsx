@@ -86,7 +86,7 @@ export default function TaskDetailPage() {
           </div>
         ) : (
           <div
-            className="text-sm text-muted-foreground"
+            className="task-description-html text-sm text-muted-foreground"
             dangerouslySetInnerHTML={{ __html: sanitizeTaskHtml(task.description) }}
           />
         )}

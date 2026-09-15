@@ -6,6 +6,26 @@ import Highlight from '@tiptap/extension-highlight';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 
+// Kept in sync with the sanitizer allowlist: p br strong b em i u h1 h2 h3 ul ol li mark a.
+export function buildTaskDescriptionExtensions() {
+  return [
+    StarterKit.configure({
+      heading: { levels: [1, 2, 3] },
+      blockquote: false,
+      code: false,
+      codeBlock: false,
+      horizontalRule: false,
+      strike: false,
+      link: false,
+      underline: false,
+    }),
+    Underline,
+    Highlight,
+    Link.configure({ openOnClick: false, autolink: true }),
+    Placeholder.configure({ placeholder: 'Descripción' }),
+  ];
+}
+
 export default function TaskDescriptionEditor({
   value,
   onChange,
@@ -14,17 +34,7 @@ export default function TaskDescriptionEditor({
 }) {
   const editor = useEditor({
     editable,
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        link: false,
-        underline: false,
-      }),
-      Underline,
-      Highlight,
-      Link.configure({ openOnClick: false, autolink: true }),
-      Placeholder.configure({ placeholder: 'Descripción' }),
-    ],
+    extensions: buildTaskDescriptionExtensions(),
     content: value || '',
     onUpdate: ({ editor: ed }) => {
       onChange?.(ed.getHTML());
@@ -72,7 +82,10 @@ export default function TaskDescriptionEditor({
           <button type="button" onClick={setLink}>Enlace</button>
         </div>
       )}
-      <div aria-label={ariaLabel} className="rounded border border-border bg-background px-2 py-1 text-sm">
+      <div
+        aria-label={ariaLabel}
+        className="task-description-html rounded border border-border bg-background px-2 py-1 text-sm"
+      >
         <EditorContent editor={editor} />
       </div>
     </div>

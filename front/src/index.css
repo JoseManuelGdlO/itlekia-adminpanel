@@ -140,6 +140,63 @@
   }
 }
 
+/* Tailwind preflight strips headings and list markers, so task rich text needs them back. */
+.task-description-html h1,
+.task-description-html h2,
+.task-description-html h3 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    margin-block: 0.5em 0.25em;
+}
+
+.task-description-html h1 {
+    font-size: 1.5em;
+}
+
+.task-description-html h2 {
+    font-size: 1.25em;
+}
+
+.task-description-html h3 {
+    font-size: 1.1em;
+}
+
+.task-description-html p {
+    margin-block: 0.25em;
+}
+
+.task-description-html ul,
+.task-description-html ol {
+    margin-block: 0.25em;
+    padding-inline-start: 1.5em;
+}
+
+.task-description-html ul {
+    list-style: disc;
+}
+
+.task-description-html ol {
+    list-style: decimal;
+}
+
+.task-description-html li {
+    margin-block: 0.125em;
+}
+
+.task-description-html a {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+.task-description-html mark {
+    background-color: var(--accent);
+    color: inherit;
+}
+
+.task-description-html .tiptap {
+    min-height: 8rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

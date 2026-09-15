@@ -47,6 +47,21 @@ async function notifyNewAssignee(task, assigner) {
   }
 }
 
+const pendingAssignmentEmails = new Set();
+
+// Fire-and-forget: SMTP latency or failure must not delay or change the response.
+function startAssignmentEmail(task, assigner) {
+  const pending = notifyNewAssignee(task, assigner);
+  pendingAssignmentEmails.add(pending);
+  pending.finally(() => pendingAssignmentEmails.delete(pending));
+}
+
+async function __flushAssignmentEmails() {
+  while (pendingAssignmentEmails.size > 0) {
+    await Promise.all([...pendingAssignmentEmails]);
+  }
+}
+
 async function list(req, res) {
   const where = {};
   if (req.user.role === 'admin') {
@@ -125,7 +140,7 @@ async function create(req, res) {
       { transaction: t }
     );
     await t.commit();
-    await notifyNewAssignee(task, req.user);
+    startAssignmentEmail(task, req.user);
     return res.status(201).json(task);
   } catch (err) {
     await t.rollback();
@@ -185,7 +200,7 @@ async function update(req, res) {
     task.assigneeId != null
     && Number(task.assigneeId) !== Number(previousAssigneeId)
   ) {
-    await notifyNewAssignee(task, req.user);
+    startAssignmentEmail(task, req.user);
   }
   return res.json(task);
 }
@@ -259,4 +274,12 @@ async function remove(req, res) {
   return res.status(204).send();
 }
 
-module.exports = { list, create, update, updateColumn, listActivities, remove };
+module.exports = {
+  list,
+  create,
+  update,
+  updateColumn,
+  listActivities,
+  remove,
+  __flushAssignmentEmails,
+};
