@@ -134,4 +134,44 @@ describe('backfillBoardColumns', () => {
     await expect(populatedColumn.destroy()).rejects.toThrow();
     await expect(emptyColumn.destroy()).resolves.toBeDefined();
   });
+
+  it('replaces a matching task column foreign key whose delete action is not restrictive', async () => {
+    const queryInterface = sequelize.getQueryInterface();
+    const getForeignKeyReferencesForTable =
+      queryInterface.getForeignKeyReferencesForTable.bind(queryInterface);
+    const getForeignKeysSpy = jest
+      .spyOn(queryInterface, 'getForeignKeyReferencesForTable')
+      .mockImplementation((tableName) =>
+        tableName === 'Tasks'
+          ? Promise.resolve([
+              {
+                constraintName: 'tasks_column_id_fk',
+                columnName: 'columnId',
+                referencedTableName: 'BoardColumns',
+                referencedColumnName: 'id',
+                deleteAction: 'CASCADE',
+              },
+            ])
+          : getForeignKeyReferencesForTable(tableName)
+      );
+    const removeConstraintSpy = jest
+      .spyOn(queryInterface, 'removeConstraint')
+      .mockResolvedValue();
+    const addConstraintSpy = jest.spyOn(queryInterface, 'addConstraint').mockResolvedValue();
+
+    await backfillBoardColumns();
+
+    expect(removeConstraintSpy).toHaveBeenCalledWith('Tasks', 'tasks_column_id_fk');
+    expect(addConstraintSpy).toHaveBeenCalledWith('Tasks', {
+      fields: ['columnId'],
+      type: 'foreign key',
+      name: 'tasks_column_id_fk',
+      references: { table: 'BoardColumns', field: 'id' },
+      onDelete: 'RESTRICT',
+    });
+
+    getForeignKeysSpy.mockRestore();
+    removeConstraintSpy.mockRestore();
+    addConstraintSpy.mockRestore();
+  });
 });

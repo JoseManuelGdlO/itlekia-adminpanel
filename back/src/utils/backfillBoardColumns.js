@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes, QueryTypes } = require('sequelize');
 const { sequelize, Project, BoardColumn, Task, TaskActivity } = require('../models');
 const { seedDefaultColumns, firstColumn } = require('./boardColumns');
 
@@ -31,16 +31,96 @@ async function mapActivitySlugs() {
   }
 }
 
+function isRestrictiveDeleteAction(action) {
+  return ['RESTRICT', 'NO ACTION'].includes(String(action || '').toUpperCase());
+}
+
+async function foreignKeyDeleteActions() {
+  if (sequelize.getDialect() === 'sqlite') {
+    const rows = await sequelize.query('PRAGMA foreign_key_list(`Tasks`)', {
+      type: QueryTypes.SELECT,
+    });
+    return rows.map((row) => ({
+      columnName: row.from,
+      referencedTableName: row.table,
+      referencedColumnName: row.to,
+      deleteAction: row.on_delete,
+    }));
+  }
+  if (sequelize.getDialect() === 'mysql') {
+    return sequelize.query(
+      `SELECT
+         kcu.CONSTRAINT_NAME AS constraintName,
+         kcu.COLUMN_NAME AS columnName,
+         kcu.REFERENCED_TABLE_NAME AS referencedTableName,
+         kcu.REFERENCED_COLUMN_NAME AS referencedColumnName,
+         rc.DELETE_RULE AS deleteAction
+       FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+       JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
+         ON rc.CONSTRAINT_SCHEMA = kcu.CONSTRAINT_SCHEMA
+        AND rc.TABLE_NAME = kcu.TABLE_NAME
+        AND rc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+       WHERE kcu.CONSTRAINT_SCHEMA = :schema
+         AND kcu.TABLE_NAME = 'Tasks'
+         AND kcu.REFERENCED_TABLE_NAME IS NOT NULL`,
+      {
+        replacements: { schema: sequelize.config.database },
+        type: QueryTypes.SELECT,
+      }
+    );
+  }
+  return [];
+}
+
+function isTaskColumnForeignKey(foreignKey) {
+  return (
+    foreignKey.columnName === 'columnId' &&
+    foreignKey.referencedTableName === 'BoardColumns' &&
+    foreignKey.referencedColumnName === 'id'
+  );
+}
+
 async function ensureTaskColumnForeignKey(queryInterface) {
   const foreignKeys = await queryInterface.getForeignKeyReferencesForTable('Tasks');
-  const exists = foreignKeys.some(
+  let matchingForeignKeys = foreignKeys.filter(
     (foreignKey) =>
       foreignKey.constraintName === TASK_COLUMN_FOREIGN_KEY ||
-      (foreignKey.columnName === 'columnId' &&
-        foreignKey.referencedTableName === 'BoardColumns' &&
-        foreignKey.referencedColumnName === 'id')
+      isTaskColumnForeignKey(foreignKey)
   );
-  if (exists) return;
+  if (matchingForeignKeys.some((foreignKey) => !foreignKey.deleteAction && !foreignKey.onDelete)) {
+    const actionMetadata = await foreignKeyDeleteActions();
+    matchingForeignKeys = matchingForeignKeys.map((foreignKey) => {
+      const metadata = actionMetadata.find(
+        (candidate) =>
+          (candidate.constraintName &&
+            foreignKey.constraintName &&
+            candidate.constraintName === foreignKey.constraintName) ||
+          (candidate.columnName === foreignKey.columnName &&
+            candidate.referencedTableName === foreignKey.referencedTableName &&
+            candidate.referencedColumnName === foreignKey.referencedColumnName)
+      );
+      return metadata ? { ...foreignKey, ...metadata } : foreignKey;
+    });
+  }
+
+  const incorrectForeignKeys = matchingForeignKeys.filter(
+    (foreignKey) =>
+      !isRestrictiveDeleteAction(foreignKey.deleteAction || foreignKey.onDelete)
+  );
+  for (const foreignKey of incorrectForeignKeys) {
+    await queryInterface.removeConstraint(
+      'Tasks',
+      foreignKey.constraintName || TASK_COLUMN_FOREIGN_KEY
+    );
+  }
+
+  if (
+    matchingForeignKeys.some((foreignKey) =>
+      isRestrictiveDeleteAction(foreignKey.deleteAction || foreignKey.onDelete)
+    )
+  ) {
+    return;
+  }
 
   await queryInterface.addConstraint('Tasks', {
     fields: ['columnId'],
