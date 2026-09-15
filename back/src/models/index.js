@@ -12,6 +12,7 @@ const ProjectMember = require('./projectMember')(sequelize);
 const TaskActivity = require('./taskActivity')(sequelize);
 const FinanceItem = require('./financeItem')(sequelize);
 const Feature = require('./feature')(sequelize);
+const BoardColumn = require('./boardColumn')(sequelize);
 
 Project.hasMany(Task, { foreignKey: 'projectId', as: 'tasks' });
 Task.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
@@ -56,6 +57,9 @@ Feature.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
 User.hasMany(Feature, { foreignKey: 'userId', as: 'features' });
 Feature.belongsTo(User, { foreignKey: 'userId', as: 'creator' });
 
+Project.hasMany(BoardColumn, { foreignKey: 'projectId', as: 'boardColumns' });
+BoardColumn.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -67,4 +71,5 @@ module.exports = {
   TaskActivity,
   FinanceItem,
   Feature,
+  BoardColumn,
 };
