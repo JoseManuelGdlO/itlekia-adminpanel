@@ -1,7 +1,20 @@
-const { Project, Task, BoardColumn, sequelize } = require('../models');
+const {
+  Project,
+  Task,
+  Note,
+  ProjectMember,
+  TaskActivity,
+  FinanceItem,
+  Feature,
+  BoardColumn,
+  NoteNotify,
+  FeatureNotify,
+  sequelize,
+} = require('../models');
 const { memberProjectIds } = require('../utils/projectAccess');
 const { seedDefaultColumns } = require('../utils/boardColumns');
 const { PROJECT_STATUSES } = require('../utils/projectStatus');
+const { removeFinanceFile } = require('../utils/financeFiles');
 
 async function list(req, res) {
   if (req.user.role === 'admin') {
@@ -59,6 +72,26 @@ async function remove(req, res) {
   }
   const t = await sequelize.transaction();
   try {
+    const taskIds = (await Task.findAll({ where: { projectId: project.id }, attributes: ['id'], transaction: t })).map((row) => row.id);
+    if (taskIds.length) {
+      const taskNotes = await Note.findAll({ where: { taskId: taskIds }, attributes: ['id'], transaction: t });
+      const taskNoteIds = taskNotes.map((n) => n.id);
+      if (taskNoteIds.length) await NoteNotify.destroy({ where: { noteId: taskNoteIds }, transaction: t });
+      await Note.destroy({ where: { taskId: taskIds }, transaction: t });
+      await TaskActivity.destroy({ where: { taskId: taskIds }, transaction: t });
+    }
+    const projectNotes = await Note.findAll({ where: { projectId: project.id }, attributes: ['id'], transaction: t });
+    const projectNoteIds = projectNotes.map((n) => n.id);
+    if (projectNoteIds.length) await NoteNotify.destroy({ where: { noteId: projectNoteIds }, transaction: t });
+    await Note.destroy({ where: { projectId: project.id }, transaction: t });
+    const features = await Feature.findAll({ where: { projectId: project.id }, attributes: ['id'], transaction: t });
+    const featureIds = features.map((f) => f.id);
+    if (featureIds.length) await FeatureNotify.destroy({ where: { featureId: featureIds }, transaction: t });
+    await Feature.destroy({ where: { projectId: project.id }, transaction: t });
+    const financeItems = await FinanceItem.findAll({ where: { projectId: project.id }, attributes: ['storedName'], transaction: t });
+    financeItems.forEach((item) => removeFinanceFile(item.storedName));
+    await FinanceItem.destroy({ where: { projectId: project.id }, transaction: t });
+    await ProjectMember.destroy({ where: { projectId: project.id }, transaction: t });
     await Task.destroy({ where: { projectId: project.id }, transaction: t });
     await BoardColumn.destroy({ where: { projectId: project.id }, transaction: t });
     await project.destroy({ transaction: t });
