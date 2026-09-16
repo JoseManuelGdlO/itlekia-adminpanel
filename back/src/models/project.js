@@ -5,13 +5,13 @@ module.exports = (sequelize) => {
     name: { type: DataTypes.STRING, allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     status: {
-      type: DataTypes.ENUM('active', 'archived'),
+      type: DataTypes.ENUM('trabajando', 'parado', 'oculto', 'archivado'),
       allowNull: false,
-      defaultValue: 'active',
+      defaultValue: 'trabajando',
       validate: {
         isIn: {
-          args: [['active', 'archived']],
-          msg: 'Status must be either active or archived',
+          args: [['trabajando', 'parado', 'oculto', 'archivado']],
+          msg: 'Invalid status',
         },
       },
     },

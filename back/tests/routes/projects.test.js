@@ -86,9 +86,9 @@ describe('projects routes', () => {
     const putRes = await request(app)
       .put(`/projects/${otherProject.id}`)
       .set('Cookie', adminCookie)
-      .send({ status: 'archived' });
+      .send({ status: 'archivado' });
     expect(putRes.status).toBe(200);
-    expect(putRes.body.status).toBe('archived');
+    expect(putRes.body.status).toBe('archivado');
 
     const deleteRes = await request(app).delete(`/projects/${otherProject.id}`).set('Cookie', adminCookie);
     expect(deleteRes.status).toBe(204);

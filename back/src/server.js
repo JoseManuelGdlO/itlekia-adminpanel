@@ -3,12 +3,14 @@ const { sequelize } = require('./models');
 const { startReminderJob } = require('./jobs/reminderJob');
 const { backfillProjectMembers } = require('./utils/backfillProjectMembers');
 const { backfillBoardColumns } = require('./utils/backfillBoardColumns');
+const { ensureProjectStatuses } = require('./utils/ensureProjectStatuses');
 const { ensureTaskActivityTypes } = require('./utils/ensureTaskActivityTypes');
 
 const PORT = process.env.PORT || 4000;
 
 async function main() {
   await sequelize.sync();
+  await ensureProjectStatuses();
   await ensureTaskActivityTypes();
   await backfillProjectMembers();
   await backfillBoardColumns();
