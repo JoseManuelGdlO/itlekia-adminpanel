@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import * as projectsApi from '../api/projects';
 import * as notesApi from '../api/notes';
 import NotesList from '../components/notes/NotesList';
@@ -8,12 +8,14 @@ import ProjectMembersCard from '../components/projects/ProjectMembersCard';
 import ProjectFinanceCard from '../components/projects/ProjectFinanceCard';
 import ProjectFeaturesCard from '../components/projects/ProjectFeaturesCard';
 import ProjectTasksCard from '../components/projects/ProjectTasksCard';
+import ProjectStatusControls from '../components/projects/ProjectStatusControls';
 import PageSkeleton from '../components/PageSkeleton';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function ProjectDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [project, setProject] = useState(null);
   const [notes, setNotes] = useState([]);
@@ -51,7 +53,16 @@ export default function ProjectDetailPage() {
           </Link>
           <span> / {project.name}</span>
         </p>
-        <h2 className="font-heading text-xl font-semibold">{project.name}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-heading text-xl font-semibold">{project.name}</h2>
+          {user.role === 'admin' && (
+            <ProjectStatusControls
+              project={project}
+              onUpdated={setProject}
+              onDeleted={() => navigate('/projects')}
+            />
+          )}
+        </div>
         <p className="text-sm text-muted-foreground">{project.description}</p>
       </div>
       <ProjectMembersCard projectId={project.id} />
