@@ -350,6 +350,21 @@ describe('KanbanPage', () => {
     expect(card).toHaveClass('cursor-default');
   });
 
+  it('keeps paused board column rename and delete available while disabling column drag', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([
+      { id: 1, name: 'Paused board', status: 'parado' },
+    ]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([defaultColumns[0]]);
+
+    renderAs('admin');
+
+    expect(await screen.findByRole('button', { name: 'To Do' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Quitar columna' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Mover columna To Do' })).not.toBeInTheDocument();
+  });
+
   it('lets an admin add a column and hides that chrome from a developer', async () => {
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);

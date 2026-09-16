@@ -11,6 +11,7 @@ export default function KanbanColumn({
   tasks,
   canDragTask,
   isAdmin = false,
+  canDragColumn = isAdmin,
   onRename,
   onDelete,
   onOpenTask,
@@ -22,7 +23,7 @@ export default function KanbanColumn({
   const { attributes, listeners, setNodeRef, transform, transition, isOver } = useSortable({
     id: `column:${column.id}`,
     data: { type: 'column' },
-    disabled: { draggable: !isAdmin },
+    disabled: { draggable: !canDragColumn },
   });
 
   const style = {
@@ -93,7 +94,7 @@ export default function KanbanColumn({
         )}
         <span className="flex items-center gap-1">
           <span className="text-xs font-normal text-muted-foreground">{tasks.length}</span>
-          {isAdmin && (
+          {canDragColumn && (
             <button
               type="button"
               aria-label={`Mover columna ${column.name}`}

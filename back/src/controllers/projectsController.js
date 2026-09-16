@@ -71,6 +71,7 @@ async function remove(req, res) {
     return res.status(404).json({ error: 'Project not found' });
   }
   const t = await sequelize.transaction();
+  let financeFileNames = [];
   try {
     const taskIds = (await Task.findAll({ where: { projectId: project.id }, attributes: ['id'], transaction: t })).map((row) => row.id);
     if (taskIds.length) {
@@ -89,18 +90,19 @@ async function remove(req, res) {
     if (featureIds.length) await FeatureNotify.destroy({ where: { featureId: featureIds }, transaction: t });
     await Feature.destroy({ where: { projectId: project.id }, transaction: t });
     const financeItems = await FinanceItem.findAll({ where: { projectId: project.id }, attributes: ['storedName'], transaction: t });
-    financeItems.forEach((item) => removeFinanceFile(item.storedName));
+    financeFileNames = financeItems.map((item) => item.storedName).filter(Boolean);
     await FinanceItem.destroy({ where: { projectId: project.id }, transaction: t });
     await ProjectMember.destroy({ where: { projectId: project.id }, transaction: t });
     await Task.destroy({ where: { projectId: project.id }, transaction: t });
     await BoardColumn.destroy({ where: { projectId: project.id }, transaction: t });
     await project.destroy({ transaction: t });
     await t.commit();
-    return res.status(204).send();
   } catch (err) {
     await t.rollback();
     throw err;
   }
+  financeFileNames.forEach((storedName) => removeFinanceFile(storedName));
+  return res.status(204).send();
 }
 
 module.exports = { list, create, update, remove };

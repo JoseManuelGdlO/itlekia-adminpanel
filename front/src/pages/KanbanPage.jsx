@@ -170,6 +170,7 @@ export default function KanbanPage() {
   const boardProjects = projects.filter((p) => isKanbanListed(p.status));
   const selectedProject = boardProjects.find((p) => String(p.id) === String(selectedProjectId));
   const paused = selectedProject?.status === 'parado';
+  const canReorderColumns = user.role === 'admin' && !paused;
   const visibleTasks = tasks.filter((t) => String(t.projectId) === String(selectedProjectId));
 
   function canDragTask(task) {
@@ -214,6 +215,7 @@ export default function KanbanPage() {
                 tasks={visibleTasks.filter((t) => String(t.columnId) === String(column.id))}
                 canDragTask={canDragTask}
                 isAdmin={user.role === 'admin'}
+                canDragColumn={canReorderColumns}
                 onRename={(name) => handleRenameColumn(column.id, name)}
                 onDelete={() => handleDeleteColumn(column.id)}
                 onOpenTask={setOpenTask}

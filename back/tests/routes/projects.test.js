@@ -1,5 +1,9 @@
 process.env.JWT_SECRET = 'test-secret';
 const request = require('supertest');
+const financeFiles = require('../../src/utils/financeFiles');
+
+const removeFinanceFileSpy = jest.spyOn(financeFiles, 'removeFinanceFile').mockImplementation(() => {});
+
 const app = require('../../src/app');
 const {
   sequelize,
@@ -24,6 +28,10 @@ describe('projects routes', () => {
   let memberProject;
   let otherProject;
   let developer;
+
+  beforeEach(() => {
+    removeFinanceFileSpy.mockClear();
+  });
 
   beforeAll(async () => {
     await sequelize.sync({ force: true });
@@ -140,6 +148,18 @@ describe('projects routes', () => {
 
   it('deletes a project and its dependent records', async () => {
     await sequelize.query('PRAGMA foreign_keys = ON');
+    const commitSpy = jest.fn();
+    const originalTransaction = sequelize.transaction.bind(sequelize);
+    const transactionSpy = jest.spyOn(sequelize, 'transaction').mockImplementation(async (...args) => {
+      const transaction = await originalTransaction(...args);
+      const originalCommit = transaction.commit.bind(transaction);
+      transaction.commit = jest.fn(async (...commitArgs) => {
+        commitSpy();
+        return originalCommit(...commitArgs);
+      });
+      return transaction;
+    });
+
     try {
       const doomed = await Project.create({ name: 'Doomed board' });
       const [col] = await seedDefaultColumns(doomed.id);
@@ -180,12 +200,16 @@ describe('projects routes', () => {
         kind: 'cost',
         title: 'Hosting',
         amount: 10,
+        storedName: 'doomed-receipt.pdf',
         createdBy: developer.id,
       });
 
       const res = await request(app).delete(`/projects/${doomed.id}`).set('Cookie', adminCookie);
 
       expect(res.status).toBe(204);
+      expect(commitSpy).toHaveBeenCalledTimes(1);
+      expect(removeFinanceFileSpy).toHaveBeenCalledWith('doomed-receipt.pdf');
+      expect(commitSpy.mock.invocationCallOrder[0]).toBeLessThan(removeFinanceFileSpy.mock.invocationCallOrder[0]);
       expect(await ProjectMember.count({ where: { projectId: doomed.id } })).toBe(0);
       expect(await FinanceItem.count({ where: { projectId: doomed.id } })).toBe(0);
       expect(await Feature.count({ where: { projectId: doomed.id } })).toBe(0);
@@ -199,6 +223,7 @@ describe('projects routes', () => {
       expect(await Project.count({ where: { id: doomed.id } })).toBe(0);
       expect(await Note.findByPk(standaloneNote.id)).not.toBeNull();
     } finally {
+      transactionSpy.mockRestore();
       await sequelize.query('PRAGMA foreign_keys = OFF');
     }
   });
