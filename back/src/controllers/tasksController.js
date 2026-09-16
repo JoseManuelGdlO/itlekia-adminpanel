@@ -2,6 +2,7 @@ const { Task, Project, TaskActivity, User, BoardColumn, sequelize } = require('.
 const { isProjectMember, memberProjectIds } = require('../utils/projectAccess');
 const { firstColumn } = require('../utils/boardColumns');
 const { sanitizeDescription } = require('../utils/sanitizeDescription');
+const { assertNotPaused } = require('../utils/projectStatus');
 const mailer = require('../utils/mailer');
 
 function isOwnerOrAdmin(task, user) {
@@ -90,6 +91,7 @@ async function create(req, res) {
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
   }
+  if (!assertNotPaused(project, res)) return;
 
   if (req.user.role !== 'admin') {
     const allowed = await isProjectMember(req.user.id, project.id);
@@ -221,6 +223,8 @@ async function update(req, res) {
 async function updateColumn(req, res) {
   const task = await Task.findByPk(req.params.id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
+  const project = await Project.findByPk(task.projectId);
+  if (!assertNotPaused(project, res)) return;
   if (!isOwnerOrAdmin(task, req.user)) return res.status(403).json({ error: 'Forbidden' });
   const column = await BoardColumn.findByPk(req.body.columnId);
   if (!column || column.projectId !== task.projectId) {

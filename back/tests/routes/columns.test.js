@@ -69,6 +69,32 @@ describe('column routes', () => {
     expect(del.status).toBe(204);
   });
 
+  it('rejects creating a column on a paused project', async () => {
+    const paused = await Project.create({ name: 'Paused columns', status: 'parado' });
+    await seedDefaultColumns(paused.id);
+
+    const res = await request(app)
+      .post(`/projects/${paused.id}/columns`)
+      .set('Cookie', adminCookie)
+      .send({ name: 'Nope' });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'Project is paused' });
+  });
+
+  it('rejects reordering columns on a paused project', async () => {
+    const paused = await Project.create({ name: 'Paused reorder', status: 'parado' });
+    const cols = await seedDefaultColumns(paused.id);
+
+    const res = await request(app)
+      .put(`/projects/${paused.id}/columns/reorder`)
+      .set('Cookie', adminCookie)
+      .send({ columnIds: cols.map((column) => column.id).reverse() });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'Project is paused' });
+  });
+
   it('rejects string column ids when reordering', async () => {
     const listed = await request(app).get(`/projects/${project.id}/columns`).set('Cookie', adminCookie);
     const stringIds = listed.body.map((column) => String(column.id));

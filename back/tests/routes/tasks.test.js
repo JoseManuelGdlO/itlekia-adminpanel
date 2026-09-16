@@ -117,6 +117,19 @@ describe('tasks routes', () => {
     expect(res.status).toBe(201);
   });
 
+  it('rejects creating a task on a paused project', async () => {
+    const paused = await Project.create({ name: 'Paused', status: 'parado' });
+    await seedDefaultColumns(paused.id);
+
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: paused.id, title: 'Nope' });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'Project is paused' });
+  });
+
   it('creates a task in a provided project column', async () => {
     const cols = await BoardColumn.findAll({
       where: { projectId: project.id },
@@ -359,6 +372,28 @@ describe('tasks routes', () => {
       .send({ columnId: inProgress.id });
     expect(res.status).toBe(200);
     expect(res.body.columnId).toBe(inProgress.id);
+  });
+
+  it('rejects moving a task on a paused project', async () => {
+    const paused = await Project.create({ name: 'Paused move', status: 'trabajando' });
+    const cols = await seedDefaultColumns(paused.id);
+    const task = await Task.create({
+      projectId: paused.id,
+      title: 'Stay put',
+      columnId: cols[0].id,
+    });
+    await request(app)
+      .put(`/projects/${paused.id}`)
+      .set('Cookie', adminCookie)
+      .send({ status: 'parado' });
+
+    const res = await request(app)
+      .patch(`/tasks/${task.id}/column`)
+      .set('Cookie', adminCookie)
+      .send({ columnId: cols[1].id });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'Project is paused' });
   });
 
   it('a different developer cannot PATCH the column of a task not assigned to them', async () => {

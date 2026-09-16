@@ -1,6 +1,7 @@
 const { sequelize, BoardColumn, Project, Task, Sequelize } = require('../models');
 const { isProjectMember } = require('../utils/projectAccess');
 const { toPublicColumn } = require('../utils/boardColumns');
+const { assertNotPaused } = require('../utils/projectStatus');
 
 async function loadProject(req, res) {
   const project = await Project.findByPk(req.params.id);
@@ -50,6 +51,7 @@ async function list(req, res) {
 async function create(req, res) {
   const project = await loadProject(req, res);
   if (!project) return;
+  if (!assertNotPaused(project, res)) return;
   const name = normalizeName(req.body.name);
   if (!name) return res.status(400).json({ error: 'Invalid name' });
   const dup = await BoardColumn.findOne({ where: { projectId: project.id, name } });
@@ -91,6 +93,7 @@ async function update(req, res) {
 async function reorder(req, res) {
   const project = await loadProject(req, res);
   if (!project) return;
+  if (!assertNotPaused(project, res)) return;
   const ids = req.body.columnIds;
   if (
     !Array.isArray(ids) ||
