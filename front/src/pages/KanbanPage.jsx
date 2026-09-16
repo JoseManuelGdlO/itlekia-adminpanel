@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import KanbanColumn from '../components/kanban/KanbanColumn';
 import TaskFormModal from '../components/kanban/TaskFormModal';
 import TaskDetailModal from '../components/tasks/TaskDetailModal';
+import { isKanbanListed } from '../lib/projectStatus';
 
 export function rollbackTaskColumn(tasks, taskId, previousColumnId) {
   if (!tasks.some((task) => task.id === taskId)) return tasks;
@@ -34,8 +35,14 @@ export default function KanbanPage() {
 
   useEffect(() => {
     projectsApi.listProjects().then((data) => {
+      const boardProjects = data.filter((p) => isKanbanListed(p.status));
       setProjects(data);
-      if (data.length > 0) setSelectedProjectId(String(data[0].id));
+      setSelectedProjectId((currentProjectId) => {
+        if (boardProjects.some((project) => String(project.id) === String(currentProjectId))) {
+          return currentProjectId;
+        }
+        return boardProjects[0] ? String(boardProjects[0].id) : '';
+      });
     });
   }, []);
 
@@ -160,18 +167,22 @@ export default function KanbanPage() {
     }
   }
 
+  const boardProjects = projects.filter((p) => isKanbanListed(p.status));
+  const selectedProject = boardProjects.find((p) => String(p.id) === String(selectedProjectId));
+  const paused = selectedProject?.status === 'parado';
   const visibleTasks = tasks.filter((t) => String(t.projectId) === String(selectedProjectId));
 
   function canDragTask(task) {
+    if (paused) return false;
     return user.role === 'admin' || String(task.assigneeId) === String(user.id);
   }
 
   return (
     <div className="p-6">
-      {projects.length > 0 && (
+      {boardProjects.length > 0 && (
         <div className="mb-4 flex items-center gap-2">
           <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto" role="tablist">
-            {projects.map((project) => (
+            {boardProjects.map((project) => (
               <button
                 key={project.id}
                 type="button"
@@ -188,7 +199,7 @@ export default function KanbanPage() {
               </button>
             ))}
           </div>
-          {selectedProjectId && (
+          {selectedProjectId && !paused && (
             <TaskFormModal projectId={selectedProjectId} users={members} onCreated={handleTaskCreated} />
           )}
         </div>
@@ -210,7 +221,7 @@ export default function KanbanPage() {
               />
             ))}
           </SortableContext>
-          {user.role === 'admin' && selectedProjectId && (
+          {user.role === 'admin' && selectedProjectId && !paused && (
             <div className="w-64 shrink-0 rounded-xl border border-dashed border-border p-2">
               {addingColumn ? (
                 <form onSubmit={handleAddColumn}>
