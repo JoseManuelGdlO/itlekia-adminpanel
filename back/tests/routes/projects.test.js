@@ -53,12 +53,34 @@ describe('projects routes', () => {
     expect(res.body.map((p) => p.name)).not.toContain('Other Project');
   });
 
+  it('hides oculto and archivado projects from a member developer', async () => {
+    const hidden = await Project.create({ name: 'Ghost', status: 'oculto' });
+    const parked = await Project.create({ name: 'Shelf', status: 'archivado' });
+    await ProjectMember.create({ projectId: hidden.id, userId: developer.id });
+    await ProjectMember.create({ projectId: parked.id, userId: developer.id });
+    const res = await request(app).get('/projects').set('Cookie', developerCookie);
+    expect(res.status).toBe(200);
+    const names = res.body.map((p) => p.name);
+    expect(names).not.toContain('Ghost');
+    expect(names).not.toContain('Shelf');
+    expect(names).toContain('Assigned Project');
+  });
+
   it('admin creates a project', async () => {
     const res = await request(app)
       .post('/projects')
       .set('Cookie', adminCookie)
       .send({ name: 'New Project', description: 'desc' });
     expect(res.status).toBe(201);
+  });
+
+  it('admin create returns trabajando', async () => {
+    const res = await request(app)
+      .post('/projects')
+      .set('Cookie', adminCookie)
+      .send({ name: 'Fresh' });
+    expect(res.status).toBe(201);
+    expect(res.body.status).toBe('trabajando');
   });
 
   it('admin create seeds To Do, In Progress, Review, Done', async () => {
@@ -80,6 +102,15 @@ describe('projects routes', () => {
       .set('Cookie', developerCookie)
       .send({ name: 'Nope' });
     expect(res.status).toBe(403);
+  });
+
+  it('rejects an invalid project status', async () => {
+    const res = await request(app)
+      .put(`/projects/${memberProject.id}`)
+      .set('Cookie', adminCookie)
+      .send({ status: 'active' });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid status' });
   });
 
   it('admin updates and deletes a project', async () => {
