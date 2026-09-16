@@ -3,10 +3,13 @@ import { render, screen } from '@testing-library/react';
 import StatusPill from './StatusPill';
 
 describe('StatusPill', () => {
-  it('labels active as Activo and archived as Archivado', () => {
-    const { rerender } = render(<StatusPill status="active" />);
-    expect(screen.getByText('Activo')).toBeInTheDocument();
-    rerender(<StatusPill status="archived" />);
-    expect(screen.getByText('Archivado')).toBeInTheDocument();
+  it.each([
+    ['trabajando', 'Trabajando', 'bg-teal-soft/20 text-rail'],
+    ['parado', 'Parado', 'bg-accent text-rail'],
+    ['oculto', 'Oculto', 'bg-muted text-muted-foreground'],
+    ['archivado', 'Archivado', 'bg-muted text-muted-foreground'],
+  ])('labels and styles %s projects', (status, label, classes) => {
+    render(<StatusPill status={status} />);
+    expect(screen.getByText(label)).toHaveClass(...classes.split(' '));
   });
 });

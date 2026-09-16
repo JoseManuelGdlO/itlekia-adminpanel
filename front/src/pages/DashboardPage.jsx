@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 const TILES = [
   { to: '/kanban', label: 'Kanban', description: 'Tablero de tareas y estados.', icon: Columns3 },
-  { to: '/projects', label: 'Proyectos', description: 'Proyectos activos y archivados.', icon: FolderKanban },
+  { to: '/projects', label: 'Proyectos', description: 'Proyectos por estado.', icon: FolderKanban },
   { to: '/notes', label: 'Notas y Recordatorios', description: 'Notas sueltas y recordatorios.', icon: StickyNote },
   { to: '/users', label: 'Usuarios', description: 'Cuentas de admin y developers.', icon: Users, roles: ['admin'] },
 ];

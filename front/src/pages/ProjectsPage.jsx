@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import StatusPill from '../components/StatusPill';
+import ProjectStatusControls from '../components/projects/ProjectStatusControls';
 
 export default function ProjectsPage() {
   const { user } = useAuth();
@@ -25,16 +26,44 @@ export default function ProjectsPage() {
     setDescription('');
   }
 
-  async function handleArchive(project) {
-    const updated = await projectsApi.updateProject(project.id, {
-      status: project.status === 'active' ? 'archived' : 'active',
-    });
+  function handleUpdated(updated) {
     setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+  }
+
+  function handleDeleted(project) {
+    setProjects((prev) => prev.filter((p) => p.id !== project.id));
+  }
+
+  const openProjects = projects.filter((project) => project.status !== 'archivado');
+  const archivedProjects = projects.filter((project) => project.status === 'archivado');
+  const isAdmin = user.role === 'admin';
+
+  function renderProjectsList(items) {
+    return (
+      <ul className="divide-y divide-border">
+        {items.map((p) => (
+          <li key={p.id} className="flex items-center justify-between gap-3 py-3">
+            <div>
+              <Link to={`/projects/${p.id}`} className="font-medium text-primary hover:underline">
+                {p.name}
+              </Link>
+              <p className="text-sm text-muted-foreground">{p.description}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusPill status={p.status} />
+              {isAdmin && (
+                <ProjectStatusControls project={p} onUpdated={handleUpdated} onDeleted={handleDeleted} />
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
   }
 
   return (
     <div className="space-y-6 p-6">
-      {user.role === 'admin' && (
+      {isAdmin && (
         <form onSubmit={handleCreate}>
           <Card className="shadow-card">
             <CardContent className="flex flex-wrap items-end gap-2">
@@ -47,29 +76,17 @@ export default function ProjectsPage() {
       )}
 
       <Card className="shadow-card">
-        <CardContent>
-          <ul className="divide-y divide-border">
-            {projects.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-3 py-3">
-                <div>
-                  <Link to={`/projects/${p.id}`} className="font-medium text-primary hover:underline">
-                    {p.name}
-                  </Link>
-                  <p className="text-sm text-muted-foreground">{p.description}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <StatusPill status={p.status} />
-                  {user.role === 'admin' && (
-                    <Button size="sm" variant="outline" onClick={() => handleArchive(p)}>
-                      {p.status === 'active' ? 'Archivar' : 'Reactivar'}
-                    </Button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
+        <CardContent>{renderProjectsList(openProjects)}</CardContent>
       </Card>
+
+      {isAdmin && archivedProjects.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-heading text-lg font-semibold">Archivados</h2>
+          <Card className="shadow-card">
+            <CardContent>{renderProjectsList(archivedProjects)}</CardContent>
+          </Card>
+        </section>
+      )}
     </div>
   );
 }
