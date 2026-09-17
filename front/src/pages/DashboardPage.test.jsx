@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DashboardPage from './DashboardPage';
 import { AuthContext } from '../context/AuthContext';
@@ -31,10 +31,15 @@ describe('DashboardPage', () => {
   });
 
   it('greets the user, shows pulse labels, and drops the old tiles', async () => {
+    dashboardApi.getDashboard.mockResolvedValueOnce({
+      pulse: { overdue: 3, today: 0, remindersToday: 0, paused: 0 },
+      items: [],
+    });
     renderDash('admin');
+    expect(await screen.findByText('Vencidas')).toBeInTheDocument();
     expect(screen.getByText('Hola, Ada')).toBeInTheDocument();
     expect(await screen.findByText('Vencidas y para hoy, más proyectos parados.')).toBeInTheDocument();
-    expect(screen.getByText('Vencidas')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('Hoy')).toBeInTheDocument();
     expect(screen.getByText('Recordatorios')).toBeInTheDocument();
     expect(screen.getByText('Parados')).toBeInTheDocument();

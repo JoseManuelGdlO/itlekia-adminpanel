@@ -9,6 +9,7 @@ const {
   Note,
   ProjectMember,
   Feature,
+  BoardColumn,
   NoteNotify,
   FeatureNotify,
 } = require('../../src/models');
@@ -52,6 +53,17 @@ describe('dashboard routes', () => {
     today = todayDateString(new Date());
     yesterday = addDays(today, -1);
     tomorrow = addDays(today, 1);
+  });
+
+  afterEach(async () => {
+    await NoteNotify.destroy({ where: {} });
+    await FeatureNotify.destroy({ where: {} });
+    await Note.destroy({ where: {} });
+    await Feature.destroy({ where: {} });
+    await Task.destroy({ where: {} });
+    await ProjectMember.destroy({ where: {} });
+    await BoardColumn.destroy({ where: {} });
+    await Project.destroy({ where: {} });
   });
 
   afterAll(async () => {
@@ -174,6 +186,26 @@ describe('dashboard routes', () => {
     const res = await request(app).get('/dashboard').set('Cookie', adminCookie);
     expect(res.status).toBe(200);
     expect(res.body.items.some((item) => item.id === unassigned.id && item.kind === 'task')).toBe(true);
+  });
+
+  it('lets admin see a reminder note they neither own nor were notified about', async () => {
+    const note = await Note.create({
+      userId: developer.id,
+      title: 'Team-wide admin reminder',
+      content: 'x',
+      isReminder: true,
+      remindAt: mexicoNoon(today),
+    });
+
+    const res = await request(app).get('/dashboard').set('Cookie', adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: 'note_reminder',
+        id: note.id,
+        title: 'Team-wide admin reminder',
+      }),
+    ]));
   });
 
   it('lists note and feature reminders the developer owns or is notified of', async () => {

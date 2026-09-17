@@ -10,4 +10,8 @@ describe('dashboardItemHref', () => {
     expect(dashboardItemHref({ kind: 'feature_reminder', id: 4, projectId: 1 })).toBe('/projects/1');
     expect(dashboardItemHref({ kind: 'project', id: 1, projectId: 1 })).toBe('/projects/1');
   });
+
+  it('routes unknown kinds to the home page', () => {
+    expect(dashboardItemHref({ kind: 'unknown', id: 1, projectId: 1 })).toBe('/');
+  });
 });

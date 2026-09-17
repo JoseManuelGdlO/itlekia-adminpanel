@@ -1,4 +1,5 @@
 const { Task, Project, BoardColumn, Note, Feature, User } = require('../models');
+const { Op } = require('sequelize');
 const { memberProjectIds } = require('../utils/projectAccess');
 const {
   todayDateString,
@@ -26,7 +27,7 @@ async function list(req, res) {
   const columns = await BoardColumn.findAll();
   const doneColumnIds = rightmostColumnIds(columns);
 
-  const taskWhere = {};
+  const taskWhere = { dueDate: { [Op.ne]: null } };
   if (!isAdmin) taskWhere.assigneeId = req.user.id;
 
   const tasks = await Task.findAll({
@@ -52,7 +53,7 @@ async function list(req, res) {
   }
 
   const notes = await Note.findAll({
-    where: { isReminder: true },
+    where: { isReminder: true, remindAt: { [Op.ne]: null } },
     include: [
       { model: User, as: 'notifyUsers' },
       { model: Project, as: 'project' },
@@ -79,7 +80,7 @@ async function list(req, res) {
   }
 
   const features = await Feature.findAll({
-    where: { isReminder: true },
+    where: { isReminder: true, remindAt: { [Op.ne]: null } },
     include: [
       { model: User, as: 'notifyUsers' },
       { model: Project, as: 'project' },

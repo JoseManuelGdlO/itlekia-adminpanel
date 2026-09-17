@@ -6,5 +6,6 @@ export function dashboardItemHref(item) {
     return '/notes';
   }
   if (item.kind === 'feature_reminder') return `/projects/${item.projectId}`;
-  return `/projects/${item.id}`;
+  if (item.kind === 'project') return `/projects/${item.id}`;
+  return '/';
 }
