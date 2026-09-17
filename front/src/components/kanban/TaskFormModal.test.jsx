@@ -15,10 +15,6 @@ vi.mock('../tasks/TaskDescriptionEditor', () => ({
   },
 }));
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 async function openForm() {
   render(<TaskFormModal projectId={1} users={[]} onCreated={vi.fn()} />);
   await act(async () => {
@@ -31,6 +27,10 @@ async function fillTitle(title) {
 }
 
 describe('TaskFormModal', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('does not POST when Guardar is clicked', async () => {
     vi.spyOn(tasksApi, 'createTask');
     await openForm();

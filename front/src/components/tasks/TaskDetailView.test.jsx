@@ -21,10 +21,6 @@ vi.mock('./TaskDescriptionEditor', () => ({
 
 const task = { id: 9, title: 'Build homepage', description: '<p>Hi</p>', projectId: 7, assigneeId: 1 };
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
 function renderView(user, props = {}) {
   return render(
     <AuthContext.Provider value={{ user, loading: false }}>
@@ -43,6 +39,10 @@ function mockDetail() {
 }
 
 describe('TaskDetailView delete', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('shows Eliminar and the exact confirm copy for an admin', async () => {
     mockDetail();
     renderView({ id: 1, role: 'admin' });
