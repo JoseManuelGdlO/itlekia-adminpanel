@@ -24,7 +24,9 @@ describe('dashboardWindow', () => {
 
   it('maps noon UTC-6 to that calendar day', () => {
     expect(calendarDateInTz(now)).toBe(today);
+    expect(calendarDateInTz(now)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(todayDateString(now)).toBe(today);
+    expect(todayDateString(now)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it('maps early UTC morning to the previous CDMX day', () => {
