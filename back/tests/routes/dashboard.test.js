@@ -287,4 +287,41 @@ describe('dashboard routes', () => {
     });
     expect(res.body.pulse.remindersToday).toBeGreaterThanOrEqual(4);
   });
+
+  it('lists paused projects for members and not for outsiders', async () => {
+    const pausedMine = await Project.create({ name: 'Hold', status: 'parado' });
+    await ProjectMember.create({ projectId: pausedMine.id, userId: developer.id });
+    const pausedOther = await Project.create({ name: 'Other hold', status: 'parado' });
+    await ProjectMember.create({ projectId: pausedOther.id, userId: other.id });
+
+    const { project, todo } = await board('Paused work', 'parado');
+    await ProjectMember.create({ projectId: project.id, userId: developer.id });
+    const late = await Task.create({
+      projectId: project.id,
+      title: 'Still late',
+      assigneeId: developer.id,
+      columnId: todo.id,
+      dueDate: mexicoNoon(yesterday),
+    });
+
+    const devRes = await request(app).get('/dashboard').set('Cookie', developerCookie);
+    expect(devRes.status).toBe(200);
+    const pausedNames = devRes.body.items.filter((item) => item.kind === 'project').map((item) => item.title);
+    expect(pausedNames).toEqual(expect.arrayContaining(['Hold', 'Paused work']));
+    expect(pausedNames).not.toContain('Other hold');
+    expect(devRes.body.items.some((item) => item.kind === 'task' && item.id === late.id)).toBe(true);
+    const hold = devRes.body.items.find((item) => item.title === 'Hold' && item.kind === 'project');
+    expect(hold).toMatchObject({
+      id: pausedMine.id,
+      at: null,
+      bucket: 'paused',
+      projectId: pausedMine.id,
+      projectName: 'Hold',
+      taskId: null,
+    });
+
+    const adminRes = await request(app).get('/dashboard').set('Cookie', adminCookie);
+    const adminPaused = adminRes.body.items.filter((item) => item.kind === 'project').map((item) => item.title);
+    expect(adminPaused).toEqual(expect.arrayContaining(['Hold', 'Other hold', 'Paused work']));
+  });
 });

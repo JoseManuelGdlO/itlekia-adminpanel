@@ -1,4 +1,5 @@
 const { Task, Project, BoardColumn, Note, Feature, User } = require('../models');
+const { memberProjectIds } = require('../utils/projectAccess');
 const {
   todayDateString,
   taskBucket,
@@ -98,6 +99,29 @@ async function list(req, res) {
       bucket,
       projectId: feature.projectId,
       projectName: feature.project.name,
+      taskId: null,
+    });
+  }
+
+  let paused = [];
+  if (isAdmin) {
+    paused = await Project.findAll({ where: { status: 'parado' } });
+  } else {
+    const ids = await memberProjectIds(req.user.id);
+    paused = ids.length
+      ? await Project.findAll({ where: { id: ids, status: 'parado' } })
+      : [];
+  }
+
+  for (const project of paused) {
+    items.push({
+      kind: 'project',
+      id: project.id,
+      title: project.name,
+      at: null,
+      bucket: 'paused',
+      projectId: project.id,
+      projectName: project.name,
       taskId: null,
     });
   }
