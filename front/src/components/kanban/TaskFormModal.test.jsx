@@ -15,8 +15,49 @@ vi.mock('../tasks/TaskDescriptionEditor', () => ({
   },
 }));
 
+async function openForm() {
+  render(<TaskFormModal projectId={1} users={[]} onCreated={vi.fn()} />);
+  await act(async () => {
+    screen.getByText('Nueva tarea').click();
+  });
+}
+
+async function fillTitle(title) {
+  fireEvent.change(screen.getByLabelText('Título'), { target: { value: title } });
+}
+
 describe('TaskFormModal', () => {
-  it('creates a task and calls onCreated with the result', async () => {
+  it('does not POST when Guardar is clicked', async () => {
+    vi.spyOn(tasksApi, 'createTask');
+    await openForm();
+    await fillTitle('New task');
+
+    await act(async () => {
+      screen.getByText('Guardar').click();
+    });
+
+    expect(screen.getByText('¿Crear New task?')).toBeInTheDocument();
+    expect(tasksApi.createTask).not.toHaveBeenCalled();
+  });
+
+  it('cancels create confirm and keeps the form values', async () => {
+    vi.spyOn(tasksApi, 'createTask');
+    await openForm();
+    await fillTitle('New task');
+
+    await act(async () => {
+      screen.getByText('Guardar').click();
+    });
+    await act(async () => {
+      screen.getByRole('button', { name: 'Cancelar' }).click();
+    });
+
+    expect(tasksApi.createTask).not.toHaveBeenCalled();
+    expect(screen.queryByText('¿Crear New task?')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Título')).toHaveValue('New task');
+  });
+
+  it('creates a task and calls onCreated after Crear', async () => {
     vi.spyOn(tasksApi, 'createTask').mockResolvedValueOnce({ id: 10, title: 'New task', status: 'todo' });
     const onCreated = vi.fn();
 
@@ -24,19 +65,23 @@ describe('TaskFormModal', () => {
       <TaskFormModal projectId={1} users={[]} onCreated={onCreated} />
     );
 
-    // The Dialog is closed initially: the form fields must not be reachable yet.
     expect(screen.queryByLabelText('Título')).not.toBeInTheDocument();
 
     await act(async () => {
       screen.getByText('Nueva tarea').click();
     });
 
-    // Clicking the trigger must have actually opened the Dialog (not just rendered the button).
     expect(screen.getByLabelText('Título')).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'New task' } });
       screen.getByText('Guardar').click();
+    });
+
+    expect(tasksApi.createTask).not.toHaveBeenCalled();
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'Crear' }).click();
     });
 
     expect(tasksApi.createTask).toHaveBeenCalledWith(expect.objectContaining({ projectId: 1, title: 'New task' }));
@@ -59,6 +104,9 @@ describe('TaskFormModal', () => {
 
     await act(async () => {
       screen.getByText('Guardar').click();
+    });
+    await act(async () => {
+      screen.getByRole('button', { name: 'Crear' }).click();
     });
 
     expect(tasksApi.createTask).toHaveBeenCalledWith(
@@ -83,10 +131,49 @@ describe('TaskFormModal', () => {
     await act(async () => {
       screen.getByText('Guardar').click();
     });
+    await act(async () => {
+      screen.getByRole('button', { name: 'Crear' }).click();
+    });
 
     expect(await screen.findByText('Invalid description')).toBeInTheDocument();
     expect(onCreated).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Título')).toBeInTheDocument();
+    expect(screen.queryByText('¿Crear Bad task?')).not.toBeInTheDocument();
+  });
+
+  it('disables Crear while the POST is in flight so a second click does not duplicate', async () => {
+    let resolveCreate;
+    vi.spyOn(tasksApi, 'createTask').mockImplementationOnce(
+      () => new Promise((resolve) => {
+        resolveCreate = resolve;
+      })
+    );
+
+    render(<TaskFormModal projectId={1} users={[]} onCreated={vi.fn()} />);
+
+    await act(async () => {
+      screen.getByText('Nueva tarea').click();
+    });
+    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'New task' } });
+    await act(async () => {
+      screen.getByText('Guardar').click();
+    });
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'Crear' }).click();
+    });
+
+    expect(screen.getByRole('button', { name: 'Crear' })).toBeDisabled();
+    expect(screen.getByText('Guardar')).toBeDisabled();
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'Crear' }).click();
+    });
+    expect(tasksApi.createTask).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveCreate({ id: 10, title: 'New task' });
+    });
   });
 
   it('opens a wide dialog so the editor can be used', async () => {
