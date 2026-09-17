@@ -8,6 +8,7 @@ const usersRoutes = require('./routes/users');
 const projectsRoutes = require('./routes/projects');
 const tasksRoutes = require('./routes/tasks');
 const notesRoutes = require('./routes/notes');
+const dashboardRoutes = require('./routes/dashboard');
 const { isOriginAllowed } = require('./utils/corsOrigins');
 
 const app = express();
@@ -31,6 +32,7 @@ app.use('/users', usersRoutes);
 app.use('/projects', projectsRoutes);
 app.use('/tasks', tasksRoutes);
 app.use('/notes', notesRoutes);
+app.use('/dashboard', dashboardRoutes);
 
 app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
