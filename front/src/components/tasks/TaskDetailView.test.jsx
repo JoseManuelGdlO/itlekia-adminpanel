@@ -101,7 +101,7 @@ describe('TaskDetailView delete', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Eliminar' }));
     fireEvent.click(screen.getAllByRole('button', { name: 'Eliminar' }).at(-1));
 
-    expect(await screen.findByText('Forbidden')).toBeInTheDocument();
+    expect(await screen.findAllByText('Forbidden')).toHaveLength(2);
     expect(onDeleted).not.toHaveBeenCalled();
     expect(
       screen.getByText('¿Eliminar Build homepage? Se borran notas e historial de la tarea.')

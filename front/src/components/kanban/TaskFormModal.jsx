@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import * as tasksApi from '../../api/tasks';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ export default function TaskFormModal({ projectId, users, onCreated }) {
   const [assigneeId, setAssigneeId] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [error, setError] = useState('');
+  const createInFlightRef = useRef(false);
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -29,30 +30,34 @@ export default function TaskFormModal({ projectId, users, onCreated }) {
   }
 
   async function handleCreate() {
-    if (pending) return;
+    if (createInFlightRef.current) return;
+    createInFlightRef.current = true;
     setPending(true);
     setError('');
+    let created;
     try {
-      const created = await tasksApi.createTask({
+      created = await tasksApi.createTask({
         projectId,
         title,
         description,
         assigneeId: assigneeId || null,
         dueDate: dueDate || null,
       });
-      onCreated(created);
-      setConfirmOpen(false);
-      setOpen(false);
-      setTitle('');
-      setDescription('');
-      setAssigneeId('');
-      setDueDate('');
     } catch (err) {
       setConfirmOpen(false);
       setError(err.response?.data?.error || err.message);
+      return;
     } finally {
+      createInFlightRef.current = false;
       setPending(false);
     }
+    setConfirmOpen(false);
+    setOpen(false);
+    setTitle('');
+    setDescription('');
+    setAssigneeId('');
+    setDueDate('');
+    onCreated(created);
   }
 
   return (

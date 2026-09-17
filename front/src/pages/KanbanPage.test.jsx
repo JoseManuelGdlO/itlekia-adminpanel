@@ -463,6 +463,7 @@ describe('KanbanPage', () => {
   it('removes the card and closes the modal after admin delete', async () => {
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([
       { id: 9, title: 'Own card', columnId: 11, projectId: 1, assigneeId: 1, description: '<p>Hi</p>' },
+      { id: 10, title: 'Sibling card', columnId: 11, projectId: 1, assigneeId: 1, description: '<p>Still here</p>' },
     ]);
     vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValue([]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValue([]);
@@ -482,5 +483,6 @@ describe('KanbanPage', () => {
     await waitFor(() => expect(tasksApi.deleteTask).toHaveBeenCalledWith(9));
     expect(screen.queryByText('Notas de la tarea')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Own card' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sibling card' })).toBeInTheDocument();
   });
 });

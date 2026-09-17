@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import TaskFormModal from './TaskFormModal';
 import * as tasksApi from '../../api/tasks';
@@ -14,6 +14,10 @@ vi.mock('../tasks/TaskDescriptionEditor', () => ({
     );
   },
 }));
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 async function openForm() {
   render(<TaskFormModal projectId={1} users={[]} onCreated={vi.fn()} />);
@@ -161,14 +165,11 @@ describe('TaskFormModal', () => {
 
     await act(async () => {
       screen.getByRole('button', { name: 'Crear' }).click();
+      screen.getByRole('button', { name: 'Crear' }).click();
     });
 
     expect(screen.getByRole('button', { name: 'Crear' })).toBeDisabled();
     expect(screen.getByText('Guardar')).toBeDisabled();
-
-    await act(async () => {
-      screen.getByRole('button', { name: 'Crear' }).click();
-    });
     expect(tasksApi.createTask).toHaveBeenCalledTimes(1);
 
     await act(async () => {

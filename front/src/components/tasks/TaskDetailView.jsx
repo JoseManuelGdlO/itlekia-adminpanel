@@ -96,6 +96,7 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
     try {
       await tasksApi.deleteTask(task.id);
       onDeleted?.(task);
+      setDeleteOpen(false);
     } catch (err) {
       setError(err.response?.data?.error || err.message);
     }
@@ -203,6 +204,7 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
               <DialogTitle>Eliminar</DialogTitle>
             </DialogHeader>
             <p>¿Eliminar {task.title}? Se borran notas e historial de la tarea.</p>
+            {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setDeleteOpen(false)}>
                 Cancelar
