@@ -1,4 +1,4 @@
-const { Task, Project, TaskActivity, User, BoardColumn, sequelize } = require('../models');
+const { Task, Project, TaskActivity, User, BoardColumn, Note, NoteNotify, sequelize } = require('../models');
 const { isProjectMember, memberProjectIds } = require('../utils/projectAccess');
 const { firstColumn } = require('../utils/boardColumns');
 const { sanitizeDescription } = require('../utils/sanitizeDescription');
@@ -289,7 +289,19 @@ async function remove(req, res) {
   if (!task) {
     return res.status(404).json({ error: 'Task not found' });
   }
-  await task.destroy();
+  const t = await sequelize.transaction();
+  try {
+    const notes = await Note.findAll({ where: { taskId: task.id }, attributes: ['id'], transaction: t });
+    const noteIds = notes.map((n) => n.id);
+    if (noteIds.length) await NoteNotify.destroy({ where: { noteId: noteIds }, transaction: t });
+    await Note.destroy({ where: { taskId: task.id }, transaction: t });
+    await TaskActivity.destroy({ where: { taskId: task.id }, transaction: t });
+    await task.destroy({ transaction: t });
+    await t.commit();
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
   return res.status(204).send();
 }
 

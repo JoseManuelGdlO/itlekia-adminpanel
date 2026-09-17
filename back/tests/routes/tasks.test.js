@@ -9,6 +9,8 @@ const {
   Task,
   TaskActivity,
   BoardColumn,
+  Note,
+  NoteNotify,
 } = require('../../src/models');
 const { signToken } = require('../../src/utils/jwt');
 const { seedDefaultColumns } = require('../../src/utils/boardColumns');
@@ -561,5 +563,74 @@ describe('tasks routes', () => {
     });
     const res = await request(app).delete(`/tasks/${toDelete.id}`).set('Cookie', adminCookie);
     expect(res.status).toBe(204);
+  });
+
+  it('admin delete cascades notes, notifies, and activity and keeps sibling project notes', async () => {
+    await sequelize.query('PRAGMA foreign_keys = ON');
+    try {
+      const doomed = await Task.create({
+        projectId: project.id,
+        title: 'Doomed task',
+        columnId: todoCol.id,
+      });
+      const taskNote = await Note.create({
+        taskId: doomed.id,
+        title: 'Task note',
+        content: 'Delete with task',
+        userId: developer.id,
+      });
+      const sibling = await Note.create({
+        projectId: project.id,
+        title: 'Project note',
+        content: 'Keep this note',
+        userId: developer.id,
+      });
+      await NoteNotify.create({ noteId: taskNote.id, userId: developer.id });
+      await NoteNotify.create({ noteId: sibling.id, userId: developer.id });
+      await TaskActivity.create({ taskId: doomed.id, userId: developer.id, type: 'created' });
+
+      const res = await request(app).delete(`/tasks/${doomed.id}`).set('Cookie', adminCookie);
+
+      expect(res.status).toBe(204);
+      expect(await Task.findByPk(doomed.id)).toBeNull();
+      expect(await Note.findByPk(taskNote.id)).toBeNull();
+      expect(await NoteNotify.count({ where: { noteId: taskNote.id } })).toBe(0);
+      expect(await TaskActivity.count({ where: { taskId: doomed.id } })).toBe(0);
+      expect(await Note.findByPk(sibling.id)).not.toBeNull();
+      expect(await NoteNotify.count({ where: { noteId: sibling.id } })).toBe(1);
+    } finally {
+      await sequelize.query('PRAGMA foreign_keys = OFF');
+    }
+  });
+
+  it('developer cannot delete a task', async () => {
+    const blocked = await Task.create({
+      projectId: project.id,
+      title: 'Stay',
+      columnId: todoCol.id,
+    });
+    const res = await request(app).delete(`/tasks/${blocked.id}`).set('Cookie', developerCookie);
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'Forbidden' });
+    expect(await Task.findByPk(blocked.id)).not.toBeNull();
+  });
+
+  it('unknown task delete returns 404', async () => {
+    const res = await request(app).delete('/tasks/99999').set('Cookie', adminCookie);
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'Task not found' });
+  });
+
+  it('admin can delete a task on a paused project', async () => {
+    const paused = await Project.create({ name: 'Paused board', status: 'parado' });
+    const [col] = await seedDefaultColumns(paused.id);
+    const pausedTask = await Task.create({
+      projectId: paused.id,
+      title: 'Paused task',
+      columnId: col.id,
+    });
+    const res = await request(app).delete(`/tasks/${pausedTask.id}`).set('Cookie', adminCookie);
+    expect(res.status).toBe(204);
+    expect(await Task.findByPk(pausedTask.id)).toBeNull();
   });
 });
