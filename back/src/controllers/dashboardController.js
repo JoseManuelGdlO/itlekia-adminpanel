@@ -1,7 +1,8 @@
-const { Task, Project, BoardColumn } = require('../models');
+const { Task, Project, BoardColumn, Note, Feature, User } = require('../models');
 const {
   todayDateString,
   taskBucket,
+  reminderBucket,
   rightmostColumnIds,
   isoAt,
   sortDashboardItems,
@@ -10,6 +11,10 @@ const {
 
 function isHiddenStatus(status) {
   return status === 'oculto' || status === 'archivado';
+}
+
+function isRecipient(userId, ownerId, extras) {
+  return ownerId === userId || (extras || []).some((person) => person.id === userId);
 }
 
 async function list(req, res) {
@@ -41,6 +46,58 @@ async function list(req, res) {
       bucket,
       projectId: task.projectId,
       projectName: task.project.name,
+      taskId: null,
+    });
+  }
+
+  const notes = await Note.findAll({
+    where: { isReminder: true },
+    include: [
+      { model: User, as: 'notifyUsers' },
+      { model: Project, as: 'project' },
+      { model: Task, as: 'task', include: [{ model: Project, as: 'project' }] },
+    ],
+  });
+
+  for (const note of notes) {
+    if (!isAdmin && !isRecipient(req.user.id, note.userId, note.notifyUsers)) continue;
+    const bucket = reminderBucket(note.remindAt, note.notifiedAt, today);
+    if (!bucket) continue;
+    const project = note.project || (note.task && note.task.project) || null;
+    if (project && isHiddenStatus(project.status)) continue;
+    items.push({
+      kind: 'note_reminder',
+      id: note.id,
+      title: note.title,
+      at: isoAt(note.remindAt),
+      bucket,
+      projectId: project ? project.id : null,
+      projectName: project ? project.name : null,
+      taskId: note.taskId || null,
+    });
+  }
+
+  const features = await Feature.findAll({
+    where: { isReminder: true },
+    include: [
+      { model: User, as: 'notifyUsers' },
+      { model: Project, as: 'project' },
+    ],
+  });
+
+  for (const feature of features) {
+    if (!isAdmin && !isRecipient(req.user.id, feature.userId, feature.notifyUsers)) continue;
+    const bucket = reminderBucket(feature.remindAt, feature.notifiedAt, today);
+    if (!bucket) continue;
+    if (!feature.project || isHiddenStatus(feature.project.status)) continue;
+    items.push({
+      kind: 'feature_reminder',
+      id: feature.id,
+      title: feature.title,
+      at: isoAt(feature.remindAt),
+      bucket,
+      projectId: feature.projectId,
+      projectName: feature.project.name,
       taskId: null,
     });
   }
