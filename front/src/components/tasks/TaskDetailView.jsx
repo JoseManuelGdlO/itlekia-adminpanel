@@ -12,6 +12,7 @@ import { sanitizeTaskHtml } from '../../lib/sanitizeTaskHtml';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 function formatActivity(item) {
   const name = item.user?.name || 'Alguien';
@@ -24,7 +25,7 @@ function formatActivity(item) {
   return `${name} movió ${item.fromStatus} → ${item.toStatus}`;
 }
 
-export default function TaskDetailView({ taskId, embedded = false }) {
+export default function TaskDetailView({ taskId, embedded = false, onDeleted }) {
   const { user } = useAuth();
   const [task, setTask] = useState(null);
   const [description, setDescription] = useState('');
@@ -34,6 +35,7 @@ export default function TaskDetailView({ taskId, embedded = false }) {
   const [notes, setNotes] = useState([]);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const canAssign = user?.role === 'admin';
 
@@ -89,11 +91,22 @@ export default function TaskDetailView({ taskId, embedded = false }) {
     }
   }
 
+  async function handleDelete() {
+    setError('');
+    try {
+      await tasksApi.deleteTask(task.id);
+      onDeleted?.(task);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+    }
+  }
+
   if (loading) return <PageSkeleton />;
   if (!task) return <div className="text-sm text-muted-foreground">No se encontró</div>;
 
   const canEditDescription =
     user?.role === 'admin' || String(user?.id) === String(task.assigneeId);
+  const canDelete = user?.role === 'admin';
   const assigneeName =
     members.find((member) => String(member.id) === String(task.assigneeId))?.name || 'Sin asignar';
 
@@ -108,8 +121,22 @@ export default function TaskDetailView({ taskId, embedded = false }) {
               </Link>
               <span> / {task.title}</span>
             </p>
-            <h2 className="font-heading text-xl font-semibold">{task.title}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-heading text-xl font-semibold">{task.title}</h2>
+              {canDelete && (
+                <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)}>
+                  Eliminar
+                </Button>
+              )}
+            </div>
           </>
+        )}
+        {embedded && canDelete && (
+          <div className="flex justify-end">
+            <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)}>
+              Eliminar
+            </Button>
+          </div>
         )}
         {canEditDescription ? (
           <div className="space-y-2">
@@ -169,6 +196,24 @@ export default function TaskDetailView({ taskId, embedded = false }) {
           )}
         </CardContent>
       </Card>
+      {canDelete && (
+        <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Eliminar</DialogTitle>
+            </DialogHeader>
+            <p>¿Eliminar {task.title}? Se borran notas e historial de la tarea.</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" onClick={handleDelete}>
+                Eliminar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

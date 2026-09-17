@@ -24,3 +24,7 @@ export async function listTaskActivities(taskId) {
   const res = await api.get(`/tasks/${taskId}/activities`);
   return res.data;
 }
+
+export async function deleteTask(id) {
+  await api.delete(`/tasks/${id}`);
+}
