@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-export default function TaskDetailModal({ task, onClose }) {
+export default function TaskDetailModal({ task, onClose, onDeleted }) {
   const open = task != null;
 
   return (
@@ -15,7 +15,7 @@ export default function TaskDetailModal({ task, onClose }) {
         <DialogHeader>
           <DialogTitle>{task?.title || 'Tarea'}</DialogTitle>
         </DialogHeader>
-        {open && <TaskDetailView taskId={task.id} embedded />}
+        {open && <TaskDetailView taskId={task.id} embedded onDeleted={onDeleted} />}
       </DialogContent>
     </Dialog>
   );

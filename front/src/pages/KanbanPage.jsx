@@ -128,6 +128,11 @@ export default function KanbanPage() {
     setTasks((prev) => [...prev, task]);
   }
 
+  function handleTaskDeleted(task) {
+    setOpenTask(null);
+    setTasks((prev) => prev.filter((row) => String(row.id) !== String(task.id)));
+  }
+
   async function handleAddColumn(event) {
     event.preventDefault();
     const name = newColumnName.trim();
@@ -245,7 +250,11 @@ export default function KanbanPage() {
           )}
         </div>
       </DndContext>
-      <TaskDetailModal task={openTask} onClose={() => setOpenTask(null)} />
+      <TaskDetailModal
+        task={openTask}
+        onClose={() => setOpenTask(null)}
+        onDeleted={handleTaskDeleted}
+      />
     </div>
   );
 }

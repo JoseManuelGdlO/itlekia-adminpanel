@@ -24,6 +24,7 @@ function renderPage(user = { id: 1, name: 'Ada', role: 'admin' }) {
     <AuthContext.Provider value={{ user, loading: false }}>
       <MemoryRouter initialEntries={['/tasks/9']}>
         <Routes>
+          <Route path="/kanban" element={<div>Kanban board</div>} />
           <Route path="/tasks/:id" element={<TaskDetailPage />} />
         </Routes>
       </MemoryRouter>
@@ -202,5 +203,22 @@ describe('TaskDetailPage', () => {
     renderPage();
 
     expect(await screen.findByText('Alguien creó la tarea')).toBeInTheDocument();
+  });
+
+  it('navigates to kanban after the admin confirms delete', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValueOnce([
+      { id: 9, title: 'Build homepage', description: 'x' },
+    ]);
+    vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
+    vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValueOnce([]);
+    vi.spyOn(tasksApi, 'deleteTask').mockResolvedValueOnce();
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Eliminar' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Eliminar' }).at(-1));
+
+    expect(await screen.findByText('Kanban board')).toBeInTheDocument();
+    expect(tasksApi.deleteTask).toHaveBeenCalledWith(9);
   });
 });

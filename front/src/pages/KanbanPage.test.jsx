@@ -459,4 +459,28 @@ describe('KanbanPage', () => {
     expect(await screen.findByText('Ada')).toBeInTheDocument();
     expect(screen.getByText('Sin asignar')).toBeInTheDocument();
   });
+
+  it('removes the card and closes the modal after admin delete', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([
+      { id: 9, title: 'Own card', columnId: 11, projectId: 1, assigneeId: 1, description: '<p>Hi</p>' },
+    ]);
+    vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValue([]);
+    vi.spyOn(notesApi, 'listNotes').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
+    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
+    vi.spyOn(tasksApi, 'deleteTask').mockResolvedValueOnce();
+
+    renderAs('admin');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Own card' }));
+    expect(await screen.findByText('Notas de la tarea')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Eliminar' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Eliminar' }).at(-1));
+
+    await waitFor(() => expect(tasksApi.deleteTask).toHaveBeenCalledWith(9));
+    expect(screen.queryByText('Notas de la tarea')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Own card' })).not.toBeInTheDocument();
+  });
 });
