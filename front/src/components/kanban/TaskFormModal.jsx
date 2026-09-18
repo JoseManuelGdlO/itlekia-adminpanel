@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import TaskDescriptionEditor from '../tasks/TaskDescriptionEditor';
+import { useAuth } from '../../context/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,8 @@ import {
 } from '@/components/ui/dialog';
 
 export default function TaskFormModal({ projectId, users, onCreated }) {
+  const { user } = useAuth() || {};
+  const isAdmin = user?.role === 'admin';
   const [open, setOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -20,6 +23,7 @@ export default function TaskFormModal({ projectId, users, onCreated }) {
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [estimatedHours, setEstimatedHours] = useState('');
   const [error, setError] = useState('');
   const createInFlightRef = useRef(false);
 
@@ -36,13 +40,17 @@ export default function TaskFormModal({ projectId, users, onCreated }) {
     setError('');
     let created;
     try {
-      created = await tasksApi.createTask({
+      const payload = {
         projectId,
         title,
         description,
         assigneeId: assigneeId || null,
         dueDate: dueDate || null,
-      });
+      };
+      if (isAdmin) {
+        payload.estimatedHours = estimatedHours === '' ? null : Number(estimatedHours);
+      }
+      created = await tasksApi.createTask(payload);
     } catch (err) {
       setConfirmOpen(false);
       setError(err.response?.data?.error || err.message);
@@ -57,6 +65,7 @@ export default function TaskFormModal({ projectId, users, onCreated }) {
     setDescription('');
     setAssigneeId('');
     setDueDate('');
+    setEstimatedHours('');
     onCreated(created);
   }
 
@@ -97,6 +106,19 @@ export default function TaskFormModal({ projectId, users, onCreated }) {
               <Label htmlFor="dueDate">Fecha límite</Label>
               <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
+            {isAdmin && (
+              <div>
+                <Label htmlFor="estimatedHours">Tiempo estimado (h)</Label>
+                <Input
+                  id="estimatedHours"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={estimatedHours}
+                  onChange={(e) => setEstimatedHours(e.target.value)}
+                />
+              </div>
+            )}
             <Button type="submit" disabled={pending}>Guardar</Button>
             {error && <p className="text-sm text-destructive">{error}</p>}
           </form>

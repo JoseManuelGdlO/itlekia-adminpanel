@@ -107,4 +107,19 @@ describe('TaskDetailView delete', () => {
       screen.getByText('¿Eliminar Build homepage? Se borran notas e historial de la tarea.')
     ).toBeInTheDocument();
   });
+
+  it('admin can save estimated hours', async () => {
+    mockDetail();
+    vi.spyOn(tasksApi, 'updateTask').mockResolvedValueOnce({ ...task, estimatedHours: 3 });
+    renderView({ id: 1, role: 'admin' });
+    fireEvent.change(await screen.findByLabelText('Tiempo estimado (h)'), { target: { value: '3' } });
+    await waitFor(() => expect(tasksApi.updateTask).toHaveBeenCalledWith(9, { estimatedHours: 3 }));
+  });
+
+  it('hides estimated hours from a developer', async () => {
+    mockDetail();
+    renderView({ id: 1, role: 'developer' });
+    expect(await screen.findByText('Build homepage')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Tiempo estimado (h)')).not.toBeInTheDocument();
+  });
 });

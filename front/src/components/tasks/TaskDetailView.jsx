@@ -10,6 +10,7 @@ import TaskDescriptionEditor from './TaskDescriptionEditor';
 import { useAuth } from '../../context/AuthContext';
 import { sanitizeTaskHtml } from '../../lib/sanitizeTaskHtml';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -30,6 +31,7 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
   const [task, setTask] = useState(null);
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
+  const [estimatedHours, setEstimatedHours] = useState('');
   const [members, setMembers] = useState([]);
   const [error, setError] = useState('');
   const [notes, setNotes] = useState([]);
@@ -48,6 +50,7 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
         setTask(loadedTask);
         setDescription(loadedTask?.description || '');
         setAssigneeId(loadedTask?.assigneeId ?? '');
+        setEstimatedHours(loadedTask?.estimatedHours ?? '');
         if (loadedTask?.projectId) {
           projectsApi.listMembers(loadedTask.projectId).then(setMembers).catch(() => setMembers([]));
         }
@@ -87,6 +90,19 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
       setActivities(nextActivities);
     } catch (err) {
       setAssigneeId(task.assigneeId ?? '');
+      setError(err.response?.data?.error || err.message);
+    }
+  }
+
+  async function handleEstimatedHoursChange(raw) {
+    setEstimatedHours(raw);
+    setError('');
+    const value = raw === '' ? null : Number(raw);
+    try {
+      const saved = await tasksApi.updateTask(task.id, { estimatedHours: value });
+      setTask((previous) => ({ ...previous, ...saved }));
+    } catch (err) {
+      setEstimatedHours(task.estimatedHours ?? '');
       setError(err.response?.data?.error || err.message);
     }
   }
@@ -170,6 +186,19 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
           </div>
         ) : (
           <p className="mt-3 text-sm text-muted-foreground">Asignado a: {assigneeName}</p>
+        )}
+        {canAssign && (
+          <div className="mt-3 space-y-1">
+            <Label htmlFor="estimatedHours">Tiempo estimado (h)</Label>
+            <Input
+              id="estimatedHours"
+              type="number"
+              min="0"
+              step="0.5"
+              value={estimatedHours}
+              onChange={(e) => handleEstimatedHoursChange(e.target.value)}
+            />
+          </div>
         )}
       </div>
       <Card className="shadow-card">

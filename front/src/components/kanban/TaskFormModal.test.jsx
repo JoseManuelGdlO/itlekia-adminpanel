@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import TaskFormModal from './TaskFormModal';
 import * as tasksApi from '../../api/tasks';
+import { AuthContext } from '../../context/AuthContext';
 
 vi.mock('../tasks/TaskDescriptionEditor', () => ({
   default: function MockEditor({ value, onChange }) {
@@ -20,6 +21,14 @@ async function openForm() {
   await act(async () => {
     screen.getByText('Nueva tarea').click();
   });
+}
+
+function renderForm(role, props = {}) {
+  return render(
+    <AuthContext.Provider value={{ user: { id: 1, role }, loading: false }}>
+      <TaskFormModal projectId={1} users={[]} onCreated={vi.fn()} {...props} />
+    </AuthContext.Provider>
+  );
 }
 
 async function fillTitle(title) {
@@ -65,9 +74,7 @@ describe('TaskFormModal', () => {
     vi.spyOn(tasksApi, 'createTask').mockResolvedValueOnce({ id: 10, title: 'New task', status: 'todo' });
     const onCreated = vi.fn();
 
-    render(
-      <TaskFormModal projectId={1} users={[]} onCreated={onCreated} />
-    );
+    renderForm('admin', { onCreated });
 
     expect(screen.queryByLabelText('Título')).not.toBeInTheDocument();
 
@@ -88,8 +95,37 @@ describe('TaskFormModal', () => {
       screen.getByRole('button', { name: 'Crear' }).click();
     });
 
-    expect(tasksApi.createTask).toHaveBeenCalledWith(expect.objectContaining({ projectId: 1, title: 'New task' }));
+    expect(tasksApi.createTask).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: 1, title: 'New task', estimatedHours: null })
+    );
     expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 10 }));
+  });
+
+  it('admin create payload includes estimatedHours', async () => {
+    vi.spyOn(tasksApi, 'createTask').mockResolvedValueOnce({ id: 10, title: 'New task' });
+    renderForm('admin', { onCreated: vi.fn() });
+    await act(async () => {
+      screen.getByText('Nueva tarea').click();
+    });
+    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'New task' } });
+    fireEvent.change(screen.getByLabelText('Tiempo estimado (h)'), { target: { value: '2.5' } });
+    await act(async () => {
+      screen.getByText('Guardar').click();
+    });
+    await act(async () => {
+      screen.getByRole('button', { name: 'Crear' }).click();
+    });
+    expect(tasksApi.createTask).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'New task', estimatedHours: 2.5 })
+    );
+  });
+
+  it('hides estimated hours from a developer', async () => {
+    renderForm('developer');
+    await act(async () => {
+      screen.getByText('Nueva tarea').click();
+    });
+    expect(screen.queryByLabelText('Tiempo estimado (h)')).not.toBeInTheDocument();
   });
 
   it('submits the rich-text description from the shared editor', async () => {
