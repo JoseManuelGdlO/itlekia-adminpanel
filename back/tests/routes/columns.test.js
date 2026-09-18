@@ -241,4 +241,31 @@ describe('column routes', () => {
     countSpy.mockRestore();
     destroySpy.mockRestore();
   });
+
+  it('copies column names from this board onto every other project', async () => {
+    const source = await Project.create({ name: 'Source board' });
+    const dest = await Project.create({ name: 'Dest board' });
+    const sourceCols = await seedDefaultColumns(source.id);
+    await seedDefaultColumns(dest.id);
+    await request(app)
+      .put(`/projects/${source.id}/columns/${sourceCols[0].id}`)
+      .set('Cookie', adminCookie)
+      .send({ name: 'Por hacer' });
+    await request(app)
+      .put(`/projects/${source.id}/columns/${sourceCols[1].id}`)
+      .set('Cookie', adminCookie)
+      .send({ name: 'En curso' });
+
+    const res = await request(app)
+      .post(`/projects/${source.id}/columns/apply-to-all`)
+      .set('Cookie', adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.updated).toBeGreaterThan(0);
+
+    const destCols = await BoardColumn.findAll({
+      where: { projectId: dest.id },
+      order: [['position', 'ASC'], ['id', 'ASC']],
+    });
+    expect(destCols.map((c) => c.name).slice(0, 2)).toEqual(['Por hacer', 'En curso']);
+  });
 });

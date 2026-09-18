@@ -116,4 +116,20 @@ describe('project members routes', () => {
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'Project not found' });
   });
+
+  it('lists members plus admins as assignees', async () => {
+    const stranger = await User.create({
+      name: 'Stranger',
+      email: 'assignee-stranger@example.com',
+      passwordHash: 'x',
+      role: 'developer',
+    });
+    const res = await request(app)
+      .get(`/projects/${project.id}/assignees`)
+      .set('Cookie', developerCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.some((u) => u.role === 'admin')).toBe(true);
+    expect(res.body.some((u) => u.id === developer.id)).toBe(true);
+    expect(res.body.some((u) => u.id === stranger.id)).toBe(false);
+  });
 });

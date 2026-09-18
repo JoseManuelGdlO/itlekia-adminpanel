@@ -58,6 +58,25 @@ describe('notes routes', () => {
     expect(res.body.isReminder).toBe(true);
   });
 
+  it('creates a reminder for today from a date-only value', async () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const res = await request(app)
+      .post('/notes')
+      .set('Cookie', ownerCookie)
+      .send({
+        title: 'Today ping',
+        content: 'x',
+        isReminder: true,
+        remindAt: `${yyyy}-${mm}-${dd}`,
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.isReminder).toBe(true);
+    expect(res.body.remindAt).toBeTruthy();
+  });
+
   it('only lists notes owned by the requesting user', async () => {
     const note = await Note.create({ userId: owner.id, title: 'Owner note', content: 'x' });
 

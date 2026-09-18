@@ -1,5 +1,5 @@
 const { sequelize, User, Project, ProjectMember } = require('../../src/models');
-const { isProjectMember, memberProjectIds } = require('../../src/utils/projectAccess');
+const { isProjectMember, memberProjectIds, isAssignable } = require('../../src/utils/projectAccess');
 
 describe('projectAccess', () => {
   let project;
@@ -30,5 +30,16 @@ describe('projectAccess', () => {
 
   it('memberProjectIds returns only joined projects', async () => {
     expect(await memberProjectIds(developer.id)).toEqual([project.id]);
+  });
+
+  it('lets an admin be assigned without membership', async () => {
+    const admin = await User.create({
+      name: 'Admin',
+      email: 'admin-assign@example.com',
+      passwordHash: 'x',
+      role: 'admin',
+    });
+    expect(await isAssignable(admin.id, other.id)).toBe(true);
+    expect(await isAssignable(developer.id, other.id)).toBe(false);
   });
 });

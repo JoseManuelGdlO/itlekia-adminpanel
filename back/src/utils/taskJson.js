@@ -6,8 +6,13 @@ function parseEstimatedHours(raw) {
   return { value: n };
 }
 
+function confirmationFlag(value) {
+  return value !== false && value !== 0;
+}
+
 function toPublicTask(task, user) {
   const json = typeof task.toJSON === 'function' ? task.toJSON() : { ...task };
+  json.assigneeConfirmed = confirmationFlag(json.assigneeConfirmed);
   if (user.role !== 'admin') {
     delete json.estimatedHours;
     return json;

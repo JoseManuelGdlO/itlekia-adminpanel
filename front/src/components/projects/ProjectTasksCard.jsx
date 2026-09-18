@@ -14,7 +14,7 @@ export default function ProjectTasksCard({ projectId }) {
   useEffect(() => {
     tasksApi.listTasks({ projectId }).then(setTasks);
     columnsApi.listColumns(projectId).then(setColumns);
-    projectsApi.listMembers(projectId).then(setMembers);
+    projectsApi.listAssignees(projectId).then(setMembers);
   }, [projectId]);
 
   function handleCreated(task) {

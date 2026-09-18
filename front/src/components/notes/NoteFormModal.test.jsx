@@ -46,19 +46,20 @@ describe('NoteFormModal', () => {
       screen.getByText('Nueva nota').click();
     });
 
-    expect(screen.queryByLabelText('Fecha y hora')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Fecha')).not.toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByLabelText('Convertir en recordatorio'));
     });
 
-    expect(screen.getByLabelText('Fecha y hora')).toBeInTheDocument();
+    expect(screen.getByLabelText('Fecha')).toBeInTheDocument();
+    expect(screen.getByLabelText('Hora')).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByLabelText('Convertir en recordatorio'));
     });
 
-    expect(screen.queryByLabelText('Fecha y hora')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Fecha')).not.toBeInTheDocument();
   });
 
   it('creates a standalone note (no reminder) and calls onCreated with the result', async () => {
@@ -108,7 +109,8 @@ describe('NoteFormModal', () => {
     });
 
     await act(async () => {
-      fireEvent.change(screen.getByLabelText('Fecha y hora'), { target: { value: '2026-09-20T10:00' } });
+      fireEvent.change(screen.getByLabelText('Fecha'), { target: { value: '2026-09-20' } });
+      fireEvent.change(screen.getByLabelText('Hora'), { target: { value: '10:00' } });
       screen.getByText('Guardar').click();
     });
 
@@ -123,6 +125,36 @@ describe('NoteFormModal', () => {
       })
     );
     expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 6 }));
+  });
+
+  it('defaults the reminder date to today so the same day can be saved', async () => {
+    vi.spyOn(notesApi, 'createNote').mockResolvedValueOnce({ id: 11, title: 'Today note', isReminder: true });
+    const onCreated = vi.fn();
+    renderModal(<NoteFormModal onCreated={onCreated} />);
+
+    await act(async () => {
+      screen.getByText('Nueva nota').click();
+    });
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Today note' } });
+      fireEvent.change(screen.getByLabelText('Contenido'), { target: { value: 'body' } });
+      fireEvent.click(screen.getByLabelText('Convertir en recordatorio'));
+    });
+
+    const today = new Date();
+    const expected = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    expect(screen.getByLabelText('Fecha')).toHaveValue(expected);
+
+    await act(async () => {
+      screen.getByText('Guardar').click();
+    });
+
+    expect(notesApi.createNote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isReminder: true,
+        remindAt: expect.stringMatching(new RegExp(`^${expected}T`)),
+      })
+    );
   });
 
   it('does not render the project/task picker when scoped to a fixed projectId or taskId', async () => {
@@ -228,7 +260,8 @@ describe('NoteFormModal', () => {
 
     await act(async () => {
       fireEvent.click(screen.getByLabelText('Ada'));
-      fireEvent.change(screen.getByLabelText('Fecha y hora'), { target: { value: '2026-09-20T10:00' } });
+      fireEvent.change(screen.getByLabelText('Fecha'), { target: { value: '2026-09-20' } });
+      fireEvent.change(screen.getByLabelText('Hora'), { target: { value: '10:00' } });
       screen.getByText('Guardar').click();
     });
 

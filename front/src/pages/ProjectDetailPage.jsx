@@ -36,6 +36,10 @@ export default function ProjectDetailPage() {
     setNotes((prev) => [note, ...prev]);
   }
 
+  function handleNoteUpdated(note) {
+    setNotes((prev) => prev.map((row) => (row.id === note.id ? { ...row, ...note } : row)));
+  }
+
   async function handleNoteDelete(noteId) {
     await notesApi.deleteNote(noteId);
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
@@ -67,7 +71,7 @@ export default function ProjectDetailPage() {
       </div>
       <ProjectMembersCard projectId={project.id} />
       {user.role === 'admin' && <ProjectTasksCard projectId={project.id} />}
-      {user.role === 'admin' && <ProjectFinanceCard projectId={project.id} />}
+      {user.role === 'admin' && <ProjectFinanceCard project={project} onSaved={setProject} />}
       <ProjectFeaturesCard projectId={project.id} />
       <Card className="shadow-card">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -75,7 +79,7 @@ export default function ProjectDetailPage() {
           <NoteFormModal projectId={project.id} onCreated={handleNoteCreated} />
         </CardHeader>
         <CardContent>
-          <NotesList notes={notes} onDelete={handleNoteDelete} />
+          <NotesList notes={notes} onDelete={handleNoteDelete} onUpdated={handleNoteUpdated} />
         </CardContent>
       </Card>
     </div>

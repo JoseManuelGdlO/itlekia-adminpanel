@@ -35,7 +35,7 @@ describe('NotesPage', () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('Loose note')).toBeInTheDocument());
 
-    screen.getByText('Eliminar').click();
+    screen.getByRole('button', { name: 'Eliminar' }).click();
 
     await waitFor(() => expect(notesApi.deleteNote).toHaveBeenCalledWith(1));
   });
@@ -61,5 +61,30 @@ describe('NotesPage', () => {
     renderPage();
 
     expect(await screen.findByText('También: Ada')).toBeInTheDocument();
+  });
+
+  it('edits a note from the pencil button', async () => {
+    vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([
+      { id: 1, title: 'Loose note', content: 'x', isReminder: false },
+    ]);
+    vi.spyOn(notesApi, 'updateNote').mockResolvedValueOnce({
+      id: 1,
+      title: 'Edited note',
+      content: 'x',
+      isReminder: false,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Edited note' } });
+    fireEvent.click(screen.getByText('Guardar'));
+
+    await waitFor(() =>
+      expect(notesApi.updateNote).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ title: 'Edited note', content: 'x' })
+      )
+    );
+    expect(await screen.findByText('Edited note')).toBeInTheDocument();
   });
 });

@@ -45,6 +45,7 @@ describe('ProjectDetailPage', () => {
       { id: 1, title: 'Kickoff notes', content: 'y', isReminder: false, projectId: 7 },
     ]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue([]);
     vi.spyOn(financeApi, 'listFinance').mockResolvedValue([]);
     vi.spyOn(featuresApi, 'listFeatures').mockResolvedValue([]);
@@ -63,6 +64,7 @@ describe('ProjectDetailPage', () => {
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue([]);
     vi.spyOn(financeApi, 'listFinance').mockResolvedValue([]);
     vi.spyOn(featuresApi, 'listFeatures').mockResolvedValue([]);
@@ -80,6 +82,7 @@ describe('ProjectDetailPage', () => {
     ]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(featuresApi, 'listFeatures').mockResolvedValue([]);
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([]);
@@ -108,6 +111,7 @@ describe('ProjectDetailPage', () => {
     ]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue([]);
     vi.spyOn(financeApi, 'listFinance').mockResolvedValue([]);
     vi.spyOn(featuresApi, 'listFeatures').mockResolvedValue([]);
@@ -126,6 +130,7 @@ describe('ProjectDetailPage', () => {
     ]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue([]);
     vi.spyOn(financeApi, 'listFinance').mockResolvedValue([]);
     vi.spyOn(featuresApi, 'listFeatures').mockResolvedValue([]);
@@ -149,6 +154,7 @@ describe('ProjectDetailPage', () => {
     ]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([{ id: 2, name: 'Dev' }]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([{ id: 2, name: 'Dev' }]);
     vi.spyOn(usersApi, 'listUsers').mockResolvedValue([]);
     vi.spyOn(financeApi, 'listFinance').mockResolvedValue([]);
     vi.spyOn(featuresApi, 'listFeatures').mockResolvedValue([]);
@@ -177,6 +183,7 @@ describe('ProjectDetailPage', () => {
     ]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
     vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(featuresApi, 'listFeatures').mockResolvedValue([]);
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([]);

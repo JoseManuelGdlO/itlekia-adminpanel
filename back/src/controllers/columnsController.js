@@ -1,6 +1,6 @@
 const { sequelize, BoardColumn, Project, Task, Sequelize } = require('../models');
 const { isProjectMember } = require('../utils/projectAccess');
-const { toPublicColumn } = require('../utils/boardColumns');
+const { toPublicColumn, applyColumnNamesToProject } = require('../utils/boardColumns');
 const { assertNotPaused } = require('../utils/projectStatus');
 
 async function loadProject(req, res) {
@@ -152,4 +152,24 @@ async function remove(req, res) {
   }
 }
 
-module.exports = { list, create, update, reorder, remove };
+async function applyToAll(req, res) {
+  const project = await loadProject(req, res);
+  if (!project) return;
+  const source = await BoardColumn.findAll({
+    where: { projectId: project.id },
+    order: [['position', 'ASC'], ['id', 'ASC']],
+  });
+  const others = await Project.findAll({
+    where: { id: { [Sequelize.Op.ne]: project.id } },
+  });
+  let updated = 0;
+  await sequelize.transaction(async (transaction) => {
+    for (const dest of others) {
+      await applyColumnNamesToProject(source, dest.id, transaction);
+      updated += 1;
+    }
+  });
+  return res.json({ updated });
+}
+
+module.exports = { list, create, update, reorder, remove, applyToAll };

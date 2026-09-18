@@ -24,6 +24,28 @@ async function list(req, res) {
   return res.json(members.map(toPublicUser));
 }
 
+async function listAssignees(req, res) {
+  const project = await loadProject(req, res);
+  if (!project) return;
+  if (req.user.role !== 'admin') {
+    const allowed = await isProjectMember(req.user.id, project.id);
+    if (!allowed) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+  }
+  const members = await project.getMembers({ order: [['id', 'ASC']] });
+  const admins = await User.findAll({
+    where: { role: 'admin' },
+    order: [['id', 'ASC']],
+  });
+  const byId = new Map();
+  for (const user of [...members, ...admins]) {
+    byId.set(user.id, toPublicUser(user));
+  }
+  const users = [...byId.values()].sort((a, b) => a.id - b.id);
+  return res.json(users);
+}
+
 async function add(req, res) {
   const project = await loadProject(req, res);
   if (!project) return;
@@ -53,4 +75,4 @@ async function remove(req, res) {
   return res.status(204).send();
 }
 
-module.exports = { list, add, remove };
+module.exports = { list, listAssignees, add, remove };

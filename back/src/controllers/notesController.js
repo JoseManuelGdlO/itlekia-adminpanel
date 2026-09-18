@@ -1,5 +1,6 @@
 const { sequelize, Note, User, NoteNotify, Task } = require('../models');
 const { resolveNotifyUserIds } = require('../utils/notifyRecipients');
+const { parseRemindAt } = require('../utils/remindAt');
 
 function publicNotifyUsers(note) {
   return (note.notifyUsers || []).map((u) => ({ id: u.id, name: u.name }));
@@ -27,7 +28,8 @@ async function create(req, res) {
   if (projectId && taskId) {
     return res.status(400).json({ error: 'A note cannot be linked to both a project and a task' });
   }
-  if (isReminder && !remindAt) {
+  const parsedRemindAt = isReminder ? parseRemindAt(remindAt) : null;
+  if (isReminder && !parsedRemindAt) {
     return res.status(400).json({ error: 'A reminder note requires remindAt' });
   }
 
@@ -42,7 +44,7 @@ async function create(req, res) {
         projectId: projectId || null,
         taskId: taskId || null,
         isReminder: !!isReminder,
-        remindAt: isReminder ? remindAt : null,
+        remindAt: parsedRemindAt,
       },
       { transaction: t }
     );
@@ -93,14 +95,23 @@ async function update(req, res) {
   if (title !== undefined) note.title = title;
   if (content !== undefined) note.content = content;
   if (isReminder !== undefined) note.isReminder = isReminder;
-  if (remindAt !== undefined) note.remindAt = remindAt;
+  if (remindAt !== undefined) {
+    const parsed = parseRemindAt(remindAt);
+    if (remindAt && !parsed) {
+      return res.status(400).json({ error: 'A reminder note requires remindAt' });
+    }
+    note.remindAt = parsed;
+  }
 
   if (note.isReminder && !note.remindAt) {
     return res.status(400).json({ error: 'A reminder note requires remindAt' });
   }
 
   await note.save();
-  return res.json(note);
+  const withUsers = await Note.findByPk(note.id, {
+    include: { model: User, as: 'notifyUsers' },
+  });
+  return res.json(noteJson(withUsers));
 }
 
 async function remove(req, res) {

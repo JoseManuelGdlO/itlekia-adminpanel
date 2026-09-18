@@ -15,6 +15,10 @@ export default function NotesPage() {
     setNotes((prev) => [note, ...prev]);
   }
 
+  function handleUpdated(note) {
+    setNotes((prev) => prev.map((row) => (row.id === note.id ? { ...row, ...note } : row)));
+  }
+
   async function handleDelete(id) {
     await notesApi.deleteNote(id);
     setNotes((prev) => prev.filter((n) => n.id !== id));
@@ -27,7 +31,7 @@ export default function NotesPage() {
       </div>
       <Card className="shadow-card">
         <CardContent>
-          <NotesList notes={notes} onDelete={handleDelete} />
+          <NotesList notes={notes} onDelete={handleDelete} onUpdated={handleUpdated} />
         </CardContent>
       </Card>
     </div>

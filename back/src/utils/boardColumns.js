@@ -31,4 +31,57 @@ function toPublicColumn(col) {
   };
 }
 
-module.exports = { DEFAULT_BOARD_COLUMNS, seedDefaultColumns, firstColumn, toPublicColumn };
+function uniqueExtraName(name, taken) {
+  if (!taken.has(name)) return name;
+  let n = 2;
+  let candidate = `${name} (${n})`;
+  while (taken.has(candidate)) {
+    n += 1;
+    candidate = `${name} (${n})`;
+  }
+  return candidate;
+}
+
+async function applyColumnNamesToProject(sourceColumns, destProjectId, transaction) {
+  const dest = await BoardColumn.findAll({
+    where: { projectId: destProjectId },
+    order: [['position', 'ASC'], ['id', 'ASC']],
+    transaction,
+  });
+  const extraOriginalNames = dest.slice(sourceColumns.length).map((column) => column.name);
+
+  for (const column of dest) {
+    column.name = `__tmp_${column.id}`;
+    await column.save({ transaction });
+  }
+
+  for (let i = 0; i < sourceColumns.length; i += 1) {
+    const name = sourceColumns[i].name;
+    if (dest[i]) {
+      dest[i].name = name;
+      dest[i].position = i;
+      await dest[i].save({ transaction });
+    } else {
+      await BoardColumn.create(
+        { projectId: destProjectId, name, position: i },
+        { transaction }
+      );
+    }
+  }
+
+  const taken = new Set(sourceColumns.map((column) => column.name));
+  for (let i = sourceColumns.length; i < dest.length; i += 1) {
+    const name = uniqueExtraName(extraOriginalNames[i - sourceColumns.length], taken);
+    dest[i].name = name;
+    await dest[i].save({ transaction });
+    taken.add(name);
+  }
+}
+
+module.exports = {
+  DEFAULT_BOARD_COLUMNS,
+  seedDefaultColumns,
+  firstColumn,
+  toPublicColumn,
+  applyColumnNamesToProject,
+};

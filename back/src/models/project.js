@@ -15,6 +15,10 @@ module.exports = (sequelize) => {
         },
       },
     },
+    costAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true, defaultValue: null },
+    contractSignedAt: { type: DataTypes.DATEONLY, allowNull: true, defaultValue: null },
+    monthlyAmount: { type: DataTypes.DECIMAL(12, 2), allowNull: true, defaultValue: null },
+    monthlyPayDay: { type: DataTypes.INTEGER, allowNull: true, defaultValue: null },
   });
 
   return Project;

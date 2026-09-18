@@ -22,9 +22,14 @@ async function team(req, res) {
     : [];
   const resolveBucket = bucketResolver(columns);
 
-  const projectCount = new Map();
-  for (const row of members) {
-    projectCount.set(row.userId, (projectCount.get(row.userId) || 0) + 1);
+  const projectCountIds = new Map();
+  function addProject(userId, projectId) {
+    if (!projectCountIds.has(userId)) projectCountIds.set(userId, new Set());
+    projectCountIds.get(userId).add(projectId);
+  }
+  for (const row of members) addProject(row.userId, row.projectId);
+  for (const task of tasks) {
+    if (task.assigneeId != null) addProject(task.assigneeId, task.projectId);
   }
 
   const buckets = new Map();
@@ -54,7 +59,7 @@ async function team(req, res) {
         id: user.id,
         name: user.name,
         role: user.role,
-        projects: projectCount.get(user.id) || 0,
+        projects: projectCountIds.get(user.id)?.size || 0,
         todo: slot.todo,
         inProgress: slot.inProgress,
         done: slot.done,

@@ -35,6 +35,9 @@ export default function TaskCard({ task, columnPosition, draggable = true, onOpe
         </button>
       </div>
       <p className="mt-1 pl-4 text-xs text-muted-foreground">{assigneeName}</p>
+      {task.assigneeConfirmed === false && (
+        <p className="mt-1 pl-4 text-xs text-destructive">Pendiente de confirmar</p>
+      )}
     </div>
   );
 }

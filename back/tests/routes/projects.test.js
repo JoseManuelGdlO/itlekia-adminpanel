@@ -146,6 +146,24 @@ describe('projects routes', () => {
     expect(deleteRes.status).toBe(204);
   });
 
+  it('admin saves project finance summary fields', async () => {
+    const target = await Project.create({ name: 'Finance board' });
+    const res = await request(app)
+      .put(`/projects/${target.id}`)
+      .set('Cookie', adminCookie)
+      .send({
+        costAmount: 12000,
+        contractSignedAt: '2026-09-01',
+        monthlyAmount: 1500,
+        monthlyPayDay: 15,
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.costAmount).toBe(12000);
+    expect(res.body.contractSignedAt).toBe('2026-09-01');
+    expect(res.body.monthlyAmount).toBe(1500);
+    expect(res.body.monthlyPayDay).toBe(15);
+  });
+
   it('deletes a project and its dependent records', async () => {
     await sequelize.query('PRAGMA foreign_keys = ON');
     const commitSpy = jest.fn();

@@ -149,7 +149,7 @@ describe('TaskDetailPage', () => {
     ]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
     vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValue([]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValueOnce([
       { id: 2, name: 'Luis' },
     ]);
     vi.spyOn(tasksApi, 'updateTask').mockResolvedValueOnce({
@@ -180,7 +180,7 @@ describe('TaskDetailPage', () => {
     ]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValueOnce([]);
     vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValueOnce([]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValueOnce([
       { id: 7, name: 'Ada' },
     ]);
 

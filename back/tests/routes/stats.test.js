@@ -106,6 +106,20 @@ describe('stats team', () => {
     });
   });
 
+  it('counts a listed project from assignment even without membership', async () => {
+    const live = await Project.create({ name: 'Assigned only', status: 'trabajando' });
+    const [todo] = await seedDefaultColumns(live.id);
+    await Task.create({
+      projectId: live.id,
+      title: 'Admin work',
+      columnId: todo.id,
+      assigneeId: admin.id,
+    });
+    const res = await request(app).get('/stats/team').set('Cookie', adminCookie);
+    const ada = res.body.members.find((m) => m.id === admin.id);
+    expect(ada.projects).toBeGreaterThanOrEqual(1);
+  });
+
   it('returns empty members when there are no users', async () => {
     await User.destroy({ where: {} });
     const res = await request(app).get('/stats/team').set('Cookie', adminCookie);

@@ -15,11 +15,17 @@ const { memberProjectIds } = require('../utils/projectAccess');
 const { seedDefaultColumns } = require('../utils/boardColumns');
 const { PROJECT_STATUSES } = require('../utils/projectStatus');
 const { removeFinanceFile } = require('../utils/financeFiles');
+const {
+  parseMoney,
+  parsePayDay,
+  parseContractDate,
+  toPublicProject,
+} = require('../utils/projectFinance');
 
 async function list(req, res) {
   if (req.user.role === 'admin') {
     const projects = await Project.findAll({ order: [['id', 'ASC']] });
-    return res.json(projects);
+    return res.json(projects.map(toPublicProject));
   }
 
   const projectIds = await memberProjectIds(req.user.id);
@@ -30,7 +36,7 @@ async function list(req, res) {
     where: { id: projectIds, status: ['trabajando', 'parado'] },
     order: [['id', 'ASC']],
   });
-  return res.json(projects);
+  return res.json(projects.map(toPublicProject));
 }
 
 async function create(req, res) {
@@ -40,7 +46,7 @@ async function create(req, res) {
     const project = await Project.create({ name, description }, { transaction: t });
     await seedDefaultColumns(project.id, t);
     await t.commit();
-    return res.status(201).json(project);
+    return res.status(201).json(toPublicProject(project));
   } catch (err) {
     await t.rollback();
     throw err;
@@ -52,7 +58,7 @@ async function update(req, res) {
   if (!project) {
     return res.status(404).json({ error: 'Project not found' });
   }
-  const { name, description, status } = req.body;
+  const { name, description, status, costAmount, contractSignedAt, monthlyAmount, monthlyPayDay } = req.body;
   if (name !== undefined) project.name = name;
   if (description !== undefined) project.description = description;
   if (status !== undefined) {
@@ -61,8 +67,20 @@ async function update(req, res) {
     }
     project.status = status;
   }
+  const cost = parseMoney(costAmount);
+  if (cost.error) return res.status(400).json({ error: cost.error });
+  if (!cost.skip) project.costAmount = cost.value;
+  const signed = parseContractDate(contractSignedAt);
+  if (signed.error) return res.status(400).json({ error: signed.error });
+  if (!signed.skip) project.contractSignedAt = signed.value;
+  const monthly = parseMoney(monthlyAmount);
+  if (monthly.error) return res.status(400).json({ error: monthly.error });
+  if (!monthly.skip) project.monthlyAmount = monthly.value;
+  const payDay = parsePayDay(monthlyPayDay);
+  if (payDay.error) return res.status(400).json({ error: payDay.error });
+  if (!payDay.skip) project.monthlyPayDay = payDay.value;
   await project.save();
-  return res.json(project);
+  return res.json(toPublicProject(project));
 }
 
 async function remove(req, res) {

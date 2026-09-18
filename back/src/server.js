@@ -6,12 +6,16 @@ const { backfillBoardColumns } = require('./utils/backfillBoardColumns');
 const { ensureProjectStatuses } = require('./utils/ensureProjectStatuses');
 const { ensureTaskActivityTypes } = require('./utils/ensureTaskActivityTypes');
 const { ensureTaskEstimatedHours } = require('./utils/ensureTaskEstimatedHours');
+const { ensureTaskAssigneeConfirmed } = require('./utils/ensureTaskAssigneeConfirmed');
+const { ensureProjectFinance } = require('./utils/ensureProjectFinance');
 
 const PORT = process.env.PORT || 4000;
 
 async function main() {
   await sequelize.sync();
   await ensureTaskEstimatedHours();
+  await ensureTaskAssigneeConfirmed();
+  await ensureProjectFinance();
   await ensureProjectStatuses();
   await ensureTaskActivityTypes();
   await backfillProjectMembers();

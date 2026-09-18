@@ -9,6 +9,7 @@ import KanbanColumn from '../components/kanban/KanbanColumn';
 import TaskFormModal from '../components/kanban/TaskFormModal';
 import TaskDetailModal from '../components/tasks/TaskDetailModal';
 import { isKanbanListed } from '../lib/projectStatus';
+import { Button } from '@/components/ui/button';
 
 export function rollbackTaskColumn(tasks, taskId, previousColumnId) {
   if (!tasks.some((task) => task.id === taskId)) return tasks;
@@ -29,6 +30,7 @@ export default function KanbanPage() {
   const [newColumnName, setNewColumnName] = useState('');
   const [error, setError] = useState('');
   const [openTask, setOpenTask] = useState(null);
+  const [applyingColumns, setApplyingColumns] = useState(false);
   const selectedProjectIdRef = useRef(selectedProjectId);
   selectedProjectIdRef.current = selectedProjectId;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
@@ -61,7 +63,7 @@ export default function KanbanPage() {
     tasksApi.listTasks({ projectId: selectedProjectId }).then((data) => {
       if (!ignore) setTasks(data);
     });
-    projectsApi.listMembers(selectedProjectId).then((data) => {
+    projectsApi.listAssignees(selectedProjectId).then((data) => {
       if (!ignore) setMembers(data);
     });
     columnsApi.listColumns(selectedProjectId).then((data) => {
@@ -172,6 +174,19 @@ export default function KanbanPage() {
     }
   }
 
+  async function handleApplyColumnsToAll() {
+    if (!selectedProjectId) return;
+    try {
+      setError('');
+      setApplyingColumns(true);
+      await columnsApi.applyColumnsToAll(selectedProjectId);
+    } catch (applyError) {
+      setError(applyError.response?.data?.error || applyError.message || 'No se pudieron copiar las columnas');
+    } finally {
+      setApplyingColumns(false);
+    }
+  }
+
   const boardProjects = projects.filter((p) => isKanbanListed(p.status));
   const selectedProject = boardProjects.find((p) => String(p.id) === String(selectedProjectId));
   const paused = selectedProject?.status === 'parado';
@@ -186,7 +201,7 @@ export default function KanbanPage() {
   return (
     <div className="p-6">
       {boardProjects.length > 0 && (
-        <div className="mb-4 flex items-center gap-2">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto" role="tablist">
             {boardProjects.map((project) => (
               <button
@@ -208,8 +223,19 @@ export default function KanbanPage() {
           {selectedProjectId && !paused && (
             <TaskFormModal projectId={selectedProjectId} users={members} onCreated={handleTaskCreated} />
           )}
+          {user.role === 'admin' && selectedProjectId && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={applyingColumns}
+              onClick={handleApplyColumnsToAll}
+            >
+              Aplicar columnas a todos los proyectos
+            </Button>
+          )}
         </div>
       )}
+      {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto">
           <SortableContext items={columns.map((column) => `column:${column.id}`)}>

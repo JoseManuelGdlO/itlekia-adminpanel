@@ -1,5 +1,10 @@
 const { Task, Project, TaskActivity, User, BoardColumn, Note, NoteNotify, sequelize } = require('../models');
-const { isProjectMember, memberProjectIds } = require('../utils/projectAccess');
+const {
+  isProjectMember,
+  memberProjectIds,
+  isAssignable,
+  ensureAssigneeMembership,
+} = require('../utils/projectAccess');
 const { firstColumn } = require('../utils/boardColumns');
 const { sanitizeDescription } = require('../utils/sanitizeDescription');
 const { assertNotPaused } = require('../utils/projectStatus');
@@ -22,9 +27,14 @@ function applyDescription(target, raw) {
   }
 }
 
+function confirmationForAssignee(assigneeId, actorId) {
+  if (assigneeId == null || assigneeId === '') return true;
+  return Number(assigneeId) === Number(actorId);
+}
+
 async function assertAssigneeMember(assigneeId, projectId) {
   if (assigneeId == null || assigneeId === '') return null;
-  const ok = await isProjectMember(assigneeId, projectId);
+  const ok = await isAssignable(assigneeId, projectId);
   if (!ok) return { error: 'Invalid assignee' };
   return null;
 }
@@ -119,6 +129,9 @@ async function create(req, res) {
     if (!parsed.skip) hours = parsed.value;
   }
 
+  const nextAssigneeId = assigneeId === '' ? null : assigneeId;
+  await ensureAssigneeMembership(nextAssigneeId, project.id);
+
   const t = await sequelize.transaction();
   try {
     const column = req.body.columnId !== undefined
@@ -133,10 +146,11 @@ async function create(req, res) {
         projectId,
         title,
         description: descriptionHtml,
-        assigneeId: assigneeId === '' ? null : assigneeId,
+        assigneeId: nextAssigneeId,
         dueDate,
         columnId: column.id,
         estimatedHours: hours,
+        assigneeConfirmed: confirmationForAssignee(nextAssigneeId, req.user.id),
       },
       { transaction: t }
     );
@@ -205,6 +219,10 @@ async function update(req, res) {
     if (dueDate !== undefined) task.dueDate = dueDate;
     if (projectId !== undefined) task.projectId = nextProjectId;
   }
+  if (Number(task.assigneeId) !== Number(previousAssigneeId)) {
+    task.assigneeConfirmed = confirmationForAssignee(task.assigneeId, req.user.id);
+    await ensureAssigneeMembership(task.assigneeId, task.projectId);
+  }
   if (req.user.role === 'admin' && req.body.estimatedHours !== undefined) {
     const parsed = parseEstimatedHours(req.body.estimatedHours);
     if (parsed.error) return res.status(400).json({ error: parsed.error });
@@ -268,6 +286,17 @@ async function updateColumn(req, res) {
   }
 }
 
+async function confirm(req, res) {
+  const task = await Task.findByPk(req.params.id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  if (task.assigneeId == null || Number(task.assigneeId) !== Number(req.user.id)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  task.assigneeConfirmed = true;
+  await task.save();
+  return res.json(toPublicTask(task, req.user));
+}
+
 async function listActivities(req, res) {
   const task = await Task.findByPk(req.params.id);
   if (!task) {
@@ -324,6 +353,7 @@ module.exports = {
   create,
   update,
   updateColumn,
+  confirm,
   listActivities,
   remove,
   __flushAssignmentEmails,

@@ -95,7 +95,7 @@ describe('KanbanPage', () => {
       { id: 4, title: 'Other project card', columnId: 11, projectId: 2, assigneeId: 1 },
     ]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValueOnce([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
 
     renderAs('developer');
@@ -115,7 +115,7 @@ describe('KanbanPage', () => {
       { id: 11, title: 'Matching id card', columnId: 11, projectId: 1, assigneeId: 1 },
     ]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValueOnce([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValueOnce([defaultColumns[0]]);
 
     renderAs('admin');
@@ -137,7 +137,7 @@ describe('KanbanPage', () => {
     ]);
     vi.spyOn(tasksApi, 'updateTaskColumn').mockResolvedValueOnce({});
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValueOnce([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValueOnce(defaultColumns.slice(0, 2));
 
     renderAs('admin');
@@ -158,7 +158,7 @@ describe('KanbanPage', () => {
       { id: 1, title: 'Positioned card', columnId: 11, projectId: 1, assigneeId: 1 },
     ]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValueOnce([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValueOnce(defaultColumns.slice(0, 2));
     vi.spyOn(columnsApi, 'reorderColumns').mockResolvedValueOnce([]);
 
@@ -183,7 +183,7 @@ describe('KanbanPage', () => {
       { id: 1, name: 'Project Alpha', status: 'trabajando' },
       { id: 2, name: 'Project Beta', status: 'trabajando' },
     ]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([]);
 
     renderAs('developer');
@@ -209,7 +209,7 @@ describe('KanbanPage', () => {
       { id: 1, name: 'Project Alpha', status: 'trabajando' },
       { id: 2, name: 'Project Beta', status: 'trabajando' },
     ]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
 
     renderAs('developer');
@@ -236,7 +236,7 @@ describe('KanbanPage', () => {
       { id: 1, name: 'Project Alpha', status: 'trabajando' },
       { id: 2, name: 'Project Beta', status: 'trabajando' },
     ]);
-    vi.spyOn(projectsApi, 'listMembers')
+    vi.spyOn(projectsApi, 'listAssignees')
       .mockResolvedValueOnce([{ id: 11, name: 'Alpha Developer' }])
       .mockImplementationOnce(() => betaMembers)
       .mockImplementationOnce(() => currentAlphaMembers);
@@ -246,17 +246,17 @@ describe('KanbanPage', () => {
 
     const alphaTab = await screen.findByRole('tab', { name: 'Project Alpha' });
     const betaTab = screen.getByRole('tab', { name: 'Project Beta' });
-    await waitFor(() => expect(projectsApi.listMembers).toHaveBeenCalledWith('1'));
+    await waitFor(() => expect(projectsApi.listAssignees).toHaveBeenCalledWith('1'));
     fireEvent.click(screen.getByText('Nueva tarea'));
 
     expect(await screen.findByRole('option', { name: 'Alpha Developer' })).toBeInTheDocument();
 
     fireEvent.click(betaTab);
-    await waitFor(() => expect(projectsApi.listMembers).toHaveBeenCalledWith('2'));
+    await waitFor(() => expect(projectsApi.listAssignees).toHaveBeenCalledWith('2'));
     expect(screen.queryByRole('option', { name: 'Alpha Developer' })).not.toBeInTheDocument();
 
     fireEvent.click(alphaTab);
-    await waitFor(() => expect(projectsApi.listMembers).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(projectsApi.listAssignees).toHaveBeenCalledTimes(3));
 
     await act(async () => {
       resolveBeta([{ id: 22, name: 'Stale Beta Developer' }]);
@@ -275,7 +275,7 @@ describe('KanbanPage', () => {
       { id: 2, title: 'Teammate card', columnId: 11, projectId: 1, assigneeId: 8 },
     ]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValueOnce([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValueOnce([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValueOnce([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
 
     renderAs('developer', 7);
@@ -293,7 +293,7 @@ describe('KanbanPage', () => {
       { id: 1, name: 'Project Alpha', status: 'trabajando' },
       { id: 2, name: 'Project Beta', status: 'trabajando' },
     ]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([]);
 
     renderAs('admin');
@@ -312,7 +312,7 @@ describe('KanbanPage', () => {
       { id: 3, name: 'Old', status: 'archivado' },
     ]);
     // members/columns/tasks empty mocks
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([]);
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
     renderAs('admin');
@@ -325,7 +325,7 @@ describe('KanbanPage', () => {
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([
       { id: 1, name: 'Paused board', status: 'parado' },
     ]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([]);
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
     renderAs('admin');
@@ -341,7 +341,7 @@ describe('KanbanPage', () => {
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([
       { id: 1, name: 'Paused board', status: 'parado' },
     ]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
 
     renderAs('admin');
@@ -355,7 +355,7 @@ describe('KanbanPage', () => {
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([
       { id: 1, name: 'Paused board', status: 'parado' },
     ]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([defaultColumns[0]]);
 
     renderAs('admin');
@@ -368,7 +368,7 @@ describe('KanbanPage', () => {
   it('lets an admin add a column and hides that chrome from a developer', async () => {
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([
       { id: 11, name: 'To Do', position: 0, projectId: 1 },
     ]);
@@ -391,7 +391,7 @@ describe('KanbanPage', () => {
   it('lets an admin rename a column inline', async () => {
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([defaultColumns[0]]);
     vi.spyOn(columnsApi, 'updateColumn').mockResolvedValue({
       ...defaultColumns[0],
@@ -415,7 +415,7 @@ describe('KanbanPage', () => {
   it('does not show + Columna to a developer', async () => {
     vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue([
       { id: 11, name: 'To Do', position: 0, projectId: 1 },
     ]);
@@ -431,7 +431,7 @@ describe('KanbanPage', () => {
     vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValue([]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValue([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
 
     renderAs('developer', 7);
@@ -451,7 +451,7 @@ describe('KanbanPage', () => {
     vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValue([]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValue([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([{ id: 7, name: 'Ada' }]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([{ id: 7, name: 'Ada' }]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
 
     renderAs('admin');
@@ -468,7 +468,7 @@ describe('KanbanPage', () => {
     vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValue([]);
     vi.spyOn(notesApi, 'listNotes').mockResolvedValue([]);
     vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
-    vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
     vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
     vi.spyOn(tasksApi, 'deleteTask').mockResolvedValueOnce();
 
@@ -484,5 +484,18 @@ describe('KanbanPage', () => {
     expect(screen.queryByText('Notas de la tarea')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Own card' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sibling card' })).toBeInTheDocument();
+  });
+
+  it('lets an admin copy column names to every other project', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listProjects').mockResolvedValue([{ id: 1, name: 'Project Alpha', status: 'trabajando' }]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
+    vi.spyOn(columnsApi, 'listColumns').mockResolvedValue(defaultColumns);
+    vi.spyOn(columnsApi, 'applyColumnsToAll').mockResolvedValueOnce({ updated: 3 });
+
+    renderAs('admin');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Aplicar columnas a todos los proyectos' }));
+    await waitFor(() => expect(columnsApi.applyColumnsToAll).toHaveBeenCalledWith('1'));
   });
 });

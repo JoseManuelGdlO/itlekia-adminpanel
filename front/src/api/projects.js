@@ -24,6 +24,11 @@ export async function listMembers(projectId) {
   return res.data;
 }
 
+export async function listAssignees(projectId) {
+  const res = await api.get(`/projects/${projectId}/assignees`);
+  return res.data;
+}
+
 export async function addMember(projectId, userId) {
   const res = await api.post(`/projects/${projectId}/members`, { userId });
   return res.data;

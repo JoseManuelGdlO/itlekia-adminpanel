@@ -25,6 +25,11 @@ export async function listTaskActivities(taskId) {
   return res.data;
 }
 
+export async function confirmTask(id) {
+  const res = await api.post(`/tasks/${id}/confirm`);
+  return res.data;
+}
+
 export async function deleteTask(id) {
   await api.delete(`/tasks/${id}`);
 }

@@ -53,7 +53,7 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
         setAssigneeId(loadedTask?.assigneeId ?? '');
         setEstimatedHours(loadedTask?.estimatedHours ?? '');
         if (loadedTask?.projectId) {
-          projectsApi.listMembers(loadedTask.projectId).then(setMembers).catch(() => setMembers([]));
+          projectsApi.listAssignees(loadedTask.projectId).then(setMembers).catch(() => setMembers([]));
         }
       })
       .finally(() => setLoading(false));
@@ -65,9 +65,23 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
     setNotes((prev) => [note, ...prev]);
   }
 
+  function handleNoteUpdated(note) {
+    setNotes((prev) => prev.map((row) => (row.id === note.id ? { ...row, ...note } : row)));
+  }
+
   async function handleNoteDelete(noteId) {
     await notesApi.deleteNote(noteId);
     setNotes((prev) => prev.filter((n) => n.id !== noteId));
+  }
+
+  async function handleConfirm() {
+    setError('');
+    try {
+      const saved = await tasksApi.confirmTask(task.id);
+      setTask((previous) => ({ ...previous, ...saved }));
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+    }
   }
 
   async function handleDescriptionSave() {
@@ -204,6 +218,16 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
         ) : (
           <p className="mt-3 text-sm text-muted-foreground">Asignado a: {assigneeName}</p>
         )}
+        {task.assigneeConfirmed === false && String(user?.id) === String(task.assigneeId) && (
+          <div className="mt-3">
+            <Button type="button" onClick={handleConfirm}>
+              Confirmar tarea
+            </Button>
+          </div>
+        )}
+        {task.assigneeConfirmed === false && String(user?.id) !== String(task.assigneeId) && (
+          <p className="mt-3 text-sm text-destructive">Pendiente de confirmar</p>
+        )}
         {canAssign && (
           <div className="mt-3 space-y-1">
             <Label htmlFor="estimatedHours">Tiempo estimado (h)</Label>
@@ -224,7 +248,7 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
           <NoteFormModal taskId={task.id} onCreated={handleNoteCreated} />
         </CardHeader>
         <CardContent>
-          <NotesList notes={notes} onDelete={handleNoteDelete} />
+          <NotesList notes={notes} onDelete={handleNoteDelete} onUpdated={handleNoteUpdated} />
         </CardContent>
       </Card>
       <Card className="shadow-card">

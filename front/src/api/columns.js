@@ -20,6 +20,11 @@ export async function reorderColumns(projectId, columnIds) {
   return res.data;
 }
 
+export async function applyColumnsToAll(projectId) {
+  const res = await api.post(`/projects/${projectId}/columns/apply-to-all`);
+  return res.data;
+}
+
 export async function deleteColumn(projectId, columnId) {
   await api.delete(`/projects/${projectId}/columns/${columnId}`);
 }

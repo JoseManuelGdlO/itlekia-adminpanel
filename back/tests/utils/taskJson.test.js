@@ -28,6 +28,7 @@ describe('taskJson', () => {
         id: 1,
         title: 'Task',
         estimatedHours: 2.5,
+        assigneeConfirmed: true,
       });
     });
 
@@ -38,6 +39,7 @@ describe('taskJson', () => {
         id: 1,
         title: 'Task',
         estimatedHours: null,
+        assigneeConfirmed: true,
       });
     });
 
@@ -47,7 +49,13 @@ describe('taskJson', () => {
       expect(toPublicTask(task, { role: 'developer' })).toEqual({
         id: 1,
         title: 'Task',
+        assigneeConfirmed: true,
       });
+    });
+
+    it('keeps a pending confirmation flag', () => {
+      const task = { id: 1, title: 'Task', assigneeConfirmed: false };
+      expect(toPublicTask(task, { role: 'developer' }).assigneeConfirmed).toBe(false);
     });
   });
 });

@@ -52,7 +52,7 @@ function mockDetail() {
   vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([task]);
   vi.spyOn(notesApi, 'listNotes').mockResolvedValue([]);
   vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValue([]);
-  vi.spyOn(projectsApi, 'listMembers').mockResolvedValue([]);
+  vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([]);
 }
 
 describe('TaskDetailView delete', () => {
@@ -169,5 +169,23 @@ describe('TaskDetailView delete', () => {
     renderView({ id: 1, role: 'developer' });
     expect(await screen.findByText('Build homepage')).toBeInTheDocument();
     expect(screen.queryByLabelText('Tiempo estimado (h)')).not.toBeInTheDocument();
+  });
+
+  it('lets the assignee confirm a pending task', async () => {
+    vi.spyOn(tasksApi, 'listTasks').mockResolvedValue([
+      { ...task, assigneeId: 7, assigneeConfirmed: false },
+    ]);
+    vi.spyOn(notesApi, 'listNotes').mockResolvedValue([]);
+    vi.spyOn(tasksApi, 'listTaskActivities').mockResolvedValue([]);
+    vi.spyOn(projectsApi, 'listAssignees').mockResolvedValue([{ id: 7, name: 'Ada' }]);
+    vi.spyOn(tasksApi, 'confirmTask').mockResolvedValueOnce({
+      ...task,
+      assigneeId: 7,
+      assigneeConfirmed: true,
+    });
+    renderView({ id: 7, role: 'developer' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirmar tarea' }));
+    await waitFor(() => expect(tasksApi.confirmTask).toHaveBeenCalledWith(9));
+    expect(screen.queryByRole('button', { name: 'Confirmar tarea' })).not.toBeInTheDocument();
   });
 });

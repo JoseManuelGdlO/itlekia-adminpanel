@@ -52,4 +52,19 @@ describe('TaskCard', () => {
 
     expect(screen.getByText('Sin asignar')).toBeInTheDocument();
   });
+
+  it('shows a pending confirmation label', () => {
+    render(
+      <DndContext>
+        <TaskCard
+          task={{ id: 9, title: 'Open card', assigneeConfirmed: false }}
+          assigneeName="Ada"
+          columnPosition={0}
+          draggable={false}
+        />
+      </DndContext>
+    );
+
+    expect(screen.getByText('Pendiente de confirmar')).toBeInTheDocument();
+  });
 });

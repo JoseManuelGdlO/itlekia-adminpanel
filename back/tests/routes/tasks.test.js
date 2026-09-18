@@ -440,6 +440,48 @@ describe('tasks routes', () => {
     expect(res.body).toEqual({ error: 'Invalid assignee' });
   });
 
+  it('admin can assign another admin who is not a member', async () => {
+    const spy = jest.spyOn(mailer, 'sendTaskAssignedEmail').mockResolvedValue();
+    const otherAdmin = await User.create({
+      name: 'Other Admin',
+      email: 'other-admin@example.com',
+      passwordHash: 'x',
+      role: 'admin',
+    });
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Admin work', assigneeId: otherAdmin.id });
+    expect(res.status).toBe(201);
+    expect(res.body.assigneeId).toBe(otherAdmin.id);
+    expect(res.body.assigneeConfirmed).toBe(false);
+    expect(await ProjectMember.findOne({
+      where: { projectId: project.id, userId: otherAdmin.id },
+    })).not.toBeNull();
+    spy.mockRestore();
+  });
+
+  it('assignee confirms a pending task and others cannot', async () => {
+    const spy = jest.spyOn(mailer, 'sendTaskAssignedEmail').mockResolvedValue();
+    const created = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Please confirm', assigneeId: developer.id });
+    expect(created.body.assigneeConfirmed).toBe(false);
+
+    const denied = await request(app)
+      .post(`/tasks/${created.body.id}/confirm`)
+      .set('Cookie', otherDeveloperCookie);
+    expect(denied.status).toBe(403);
+
+    const ok = await request(app)
+      .post(`/tasks/${created.body.id}/confirm`)
+      .set('Cookie', developerCookie);
+    expect(ok.status).toBe(200);
+    expect(ok.body.assigneeConfirmed).toBe(true);
+    spy.mockRestore();
+  });
+
   it('strips script tags from description and keeps strong', async () => {
     const res = await request(app)
       .post('/tasks')
