@@ -3,6 +3,7 @@ const { isProjectMember, memberProjectIds } = require('../utils/projectAccess');
 const { firstColumn } = require('../utils/boardColumns');
 const { sanitizeDescription } = require('../utils/sanitizeDescription');
 const { assertNotPaused } = require('../utils/projectStatus');
+const { parseEstimatedHours, toPublicTask } = require('../utils/taskJson');
 const mailer = require('../utils/mailer');
 
 function isOwnerOrAdmin(task, user) {
@@ -82,7 +83,7 @@ async function list(req, res) {
     where.projectId = ids;
   }
   const tasks = await Task.findAll({ where, order: [['id', 'ASC']] });
-  return res.json(tasks);
+  return res.json(tasks.map((task) => toPublicTask(task, req.user)));
 }
 
 async function create(req, res) {
@@ -111,6 +112,13 @@ async function create(req, res) {
     throw err;
   }
 
+  let hours = null;
+  if (req.user.role === 'admin') {
+    const parsed = parseEstimatedHours(req.body.estimatedHours);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    if (!parsed.skip) hours = parsed.value;
+  }
+
   const t = await sequelize.transaction();
   try {
     const column = req.body.columnId !== undefined
@@ -128,6 +136,7 @@ async function create(req, res) {
         assigneeId: assigneeId === '' ? null : assigneeId,
         dueDate,
         columnId: column.id,
+        estimatedHours: hours,
       },
       { transaction: t }
     );
@@ -143,7 +152,7 @@ async function create(req, res) {
     );
     await t.commit();
     startAssignmentEmail(task, req.user);
-    return res.status(201).json(task);
+    return res.status(201).json(toPublicTask(task, req.user));
   } catch (err) {
     await t.rollback();
     throw err;
@@ -196,6 +205,11 @@ async function update(req, res) {
     if (dueDate !== undefined) task.dueDate = dueDate;
     if (projectId !== undefined) task.projectId = nextProjectId;
   }
+  if (req.user.role === 'admin' && req.body.estimatedHours !== undefined) {
+    const parsed = parseEstimatedHours(req.body.estimatedHours);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    if (!parsed.skip) task.estimatedHours = parsed.value;
+  }
 
   await task.save();
   if (Number(task.assigneeId) !== Number(previousAssigneeId)) {
@@ -217,7 +231,7 @@ async function update(req, res) {
   ) {
     startAssignmentEmail(task, req.user);
   }
-  return res.json(task);
+  return res.json(toPublicTask(task, req.user));
 }
 
 async function updateColumn(req, res) {
@@ -230,7 +244,7 @@ async function updateColumn(req, res) {
   if (!column || column.projectId !== task.projectId) {
     return res.status(400).json({ error: 'Invalid column' });
   }
-  if (task.columnId === column.id) return res.json(task);
+  if (task.columnId === column.id) return res.json(toPublicTask(task, req.user));
   const from = await BoardColumn.findByPk(task.columnId);
   const t = await sequelize.transaction();
   try {
@@ -247,7 +261,7 @@ async function updateColumn(req, res) {
       { transaction: t }
     );
     await t.commit();
-    return res.json(task);
+    return res.json(toPublicTask(task, req.user));
   } catch (err) {
     await t.rollback();
     throw err;

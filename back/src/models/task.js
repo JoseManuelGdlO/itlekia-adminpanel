@@ -6,6 +6,7 @@ module.exports = (sequelize) => {
     description: { type: DataTypes.TEXT, allowNull: true },
     columnId: { type: DataTypes.INTEGER, allowNull: false },
     dueDate: { type: DataTypes.DATE, allowNull: true },
+    estimatedHours: { type: DataTypes.DECIMAL(10, 2), allowNull: true, defaultValue: null },
   });
 
   return Task;

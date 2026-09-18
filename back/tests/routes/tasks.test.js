@@ -119,6 +119,60 @@ describe('tasks routes', () => {
     expect(res.status).toBe(201);
   });
 
+  it('admin create and get include estimatedHours', async () => {
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Timed', estimatedHours: 2.5 });
+    expect(res.status).toBe(201);
+    expect(res.body.estimatedHours).toBe(2.5);
+    const listed = await request(app).get('/tasks').set('Cookie', adminCookie);
+    const row = listed.body.find((t) => t.id === res.body.id);
+    expect(row.estimatedHours).toBe(2.5);
+  });
+
+  it('developer create and list omit estimatedHours', async () => {
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', developerCookie)
+      .send({ projectId: project.id, title: 'Dev task', estimatedHours: 9 });
+    expect(res.status).toBe(201);
+    expect(res.body).not.toHaveProperty('estimatedHours');
+    const listed = await request(app)
+      .get(`/tasks?projectId=${project.id}`)
+      .set('Cookie', developerCookie);
+    listed.body.forEach((t) => expect(t).not.toHaveProperty('estimatedHours'));
+    const stored = await Task.findOne({ where: { title: 'Dev task' } });
+    expect(stored.estimatedHours).toBeNull();
+  });
+
+  it('developer PUT cannot overwrite estimatedHours', async () => {
+    const timed = await Task.create({
+      projectId: project.id,
+      title: 'Keep hours',
+      columnId: todoCol.id,
+      assigneeId: developer.id,
+      estimatedHours: 4,
+    });
+    const res = await request(app)
+      .put(`/tasks/${timed.id}`)
+      .set('Cookie', developerCookie)
+      .send({ description: '<p>Hi</p>', estimatedHours: 99 });
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty('estimatedHours');
+    await timed.reload();
+    expect(Number(timed.estimatedHours)).toBe(4);
+  });
+
+  it('rejects negative estimatedHours', async () => {
+    const res = await request(app)
+      .post('/tasks')
+      .set('Cookie', adminCookie)
+      .send({ projectId: project.id, title: 'Bad hours', estimatedHours: -1 });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid estimated hours' });
+  });
+
   it('rejects creating a task on a paused project', async () => {
     const paused = await Project.create({ name: 'Paused', status: 'parado' });
     await seedDefaultColumns(paused.id);
