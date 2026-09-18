@@ -29,6 +29,16 @@ describe('AppShell', () => {
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument();
   });
 
+  it('shows the Equipo link for admins between Proyectos and Usuarios', () => {
+    renderWithUser('admin');
+    expect(screen.getByRole('link', { name: 'Equipo' })).toBeInTheDocument();
+  });
+
+  it('hides the Equipo link for developers', () => {
+    renderWithUser('developer');
+    expect(screen.queryByRole('link', { name: 'Equipo' })).not.toBeInTheDocument();
+  });
+
   it('renders the Intelekia isotipo', () => {
     renderWithUser('admin');
     expect(screen.getByAltText('Intelekia')).toBeInTheDocument();
@@ -39,6 +49,7 @@ describe('AppShell', () => {
     expect(screen.queryByText('Proyectos')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Expandir menú' }));
     expect(screen.getByText('Proyectos')).toBeInTheDocument();
+    expect(screen.getByText('Equipo')).toBeInTheDocument();
     expect(screen.getByText('Usuarios')).toBeInTheDocument();
   });
 
@@ -50,5 +61,10 @@ describe('AppShell', () => {
   it('sets the top-bar title from the route', () => {
     renderWithUser('admin', { path: '/kanban' });
     expect(screen.getByRole('heading', { level: 1, name: 'Kanban' })).toBeInTheDocument();
+  });
+
+  it('sets the top-bar title Equipo', () => {
+    renderWithUser('admin', { path: '/team' });
+    expect(screen.getByRole('heading', { level: 1, name: 'Equipo' })).toBeInTheDocument();
   });
 });

@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   ChevronsLeft,
   ChevronsRight,
+  ChartColumn,
   Columns3,
   FolderKanban,
   LayoutDashboard,
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'developer'] },
   { to: '/kanban', label: 'Kanban', icon: Columns3, roles: ['admin', 'developer'] },
   { to: '/projects', label: 'Proyectos', icon: FolderKanban, roles: ['admin', 'developer'] },
+  { to: '/team', label: 'Equipo', icon: ChartColumn, roles: ['admin'] },
   { to: '/users', label: 'Usuarios', icon: Users, roles: ['admin'] },
   { to: '/notes', label: 'Notas y Recordatorios', icon: StickyNote, roles: ['admin', 'developer'] },
 ];
@@ -27,6 +29,7 @@ function pageTitle(pathname) {
     '/': 'Dashboard',
     '/kanban': 'Kanban',
     '/projects': 'Proyectos',
+    '/team': 'Equipo',
     '/users': 'Usuarios',
     '/notes': 'Notas y Recordatorios',
   };
