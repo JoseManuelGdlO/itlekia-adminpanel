@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import * as tasksApi from '../../api/tasks';
 import * as notesApi from '../../api/notes';
@@ -38,6 +38,7 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const estimatedHoursSaveRef = useRef({ generation: 0, controller: null });
 
   const canAssign = user?.role === 'admin';
 
@@ -98,12 +99,28 @@ export default function TaskDetailView({ taskId, embedded = false, onDeleted }) 
     setEstimatedHours(raw);
     setError('');
     const value = raw === '' ? null : Number(raw);
+    estimatedHoursSaveRef.current.controller?.abort();
+    const controller = new AbortController();
+    const generation = estimatedHoursSaveRef.current.generation + 1;
+    estimatedHoursSaveRef.current = { generation, controller };
     try {
-      const saved = await tasksApi.updateTask(task.id, { estimatedHours: value });
+      const saved = await tasksApi.updateTask(task.id, { estimatedHours: value }, { signal: controller.signal });
+      if (estimatedHoursSaveRef.current.generation !== generation) return;
       setTask((previous) => ({ ...previous, ...saved }));
     } catch (err) {
+      if (
+        estimatedHoursSaveRef.current.generation !== generation
+        || err.name === 'CanceledError'
+        || err.code === 'ERR_CANCELED'
+      ) {
+        return;
+      }
       setEstimatedHours(task.estimatedHours ?? '');
       setError(err.response?.data?.error || err.message);
+    } finally {
+      if (estimatedHoursSaveRef.current.generation === generation) {
+        estimatedHoursSaveRef.current.controller = null;
+      }
     }
   }
 

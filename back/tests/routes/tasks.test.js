@@ -164,6 +164,63 @@ describe('tasks routes', () => {
     expect(Number(timed.estimatedHours)).toBe(4);
   });
 
+  it('admin PUT updates estimatedHours', async () => {
+    const timed = await Task.create({
+      projectId: project.id,
+      title: 'Admin hours',
+      columnId: todoCol.id,
+      estimatedHours: 1,
+    });
+
+    const res = await request(app)
+      .put(`/tasks/${timed.id}`)
+      .set('Cookie', adminCookie)
+      .send({ estimatedHours: 3.5 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.estimatedHours).toBe(3.5);
+    await timed.reload();
+    expect(Number(timed.estimatedHours)).toBe(3.5);
+  });
+
+  it('admin PUT rejects invalid estimatedHours', async () => {
+    const timed = await Task.create({
+      projectId: project.id,
+      title: 'Bad admin hours',
+      columnId: todoCol.id,
+      estimatedHours: 1,
+    });
+
+    const res = await request(app)
+      .put(`/tasks/${timed.id}`)
+      .set('Cookie', adminCookie)
+      .send({ estimatedHours: -2 });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Invalid estimated hours' });
+    await timed.reload();
+    expect(Number(timed.estimatedHours)).toBe(1);
+  });
+
+  it('admin PUT clears estimatedHours to null', async () => {
+    const timed = await Task.create({
+      projectId: project.id,
+      title: 'Clear admin hours',
+      columnId: todoCol.id,
+      estimatedHours: 1,
+    });
+
+    const res = await request(app)
+      .put(`/tasks/${timed.id}`)
+      .set('Cookie', adminCookie)
+      .send({ estimatedHours: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.estimatedHours).toBeNull();
+    await timed.reload();
+    expect(timed.estimatedHours).toBeNull();
+  });
+
   it('rejects negative estimatedHours', async () => {
     const res = await request(app)
       .post('/tasks')
@@ -428,6 +485,27 @@ describe('tasks routes', () => {
       .send({ columnId: inProgress.id });
     expect(res.status).toBe(200);
     expect(res.body.columnId).toBe(inProgress.id);
+  });
+
+  it('developer PATCH column response omits estimatedHours', async () => {
+    const cols = await BoardColumn.findAll({ where: { projectId: project.id }, order: [['position', 'ASC']] });
+    const inProgress = cols[1];
+    const timed = await Task.create({
+      projectId: project.id,
+      title: 'Move hidden hours',
+      columnId: todoCol.id,
+      assigneeId: developer.id,
+      estimatedHours: 6,
+    });
+
+    const res = await request(app)
+      .patch(`/tasks/${timed.id}/column`)
+      .set('Cookie', developerCookie)
+      .send({ columnId: inProgress.id });
+
+    expect(res.status).toBe(200);
+    expect(res.body.columnId).toBe(inProgress.id);
+    expect(res.body).not.toHaveProperty('estimatedHours');
   });
 
   it('rejects moving a task on a paused project', async () => {

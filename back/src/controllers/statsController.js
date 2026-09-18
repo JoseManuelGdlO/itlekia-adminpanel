@@ -6,7 +6,7 @@ const {
   BoardColumn,
 } = require('../models');
 const { isKanbanListed } = require('../utils/projectStatus');
-const { columnBucket } = require('../utils/taskBuckets');
+const { bucketResolver } = require('../utils/taskBuckets');
 
 async function team(req, res) {
   const users = await User.findAll({ order: [['name', 'ASC'], ['id', 'ASC']] });
@@ -20,6 +20,7 @@ async function team(req, res) {
   const tasks = listedIds.length
     ? await Task.findAll({ where: { projectId: listedIds } })
     : [];
+  const resolveBucket = bucketResolver(columns);
 
   const projectCount = new Map();
   for (const row of members) {
@@ -39,7 +40,7 @@ async function team(req, res) {
     if (task.assigneeId == null) continue;
     const slot = buckets.get(task.assigneeId);
     if (!slot) continue;
-    const bucket = columnBucket(task.columnId, columns);
+    const bucket = resolveBucket(task.columnId);
     slot[bucket] += 1;
     if (bucket !== 'done') {
       slot.estimatedHours += Number(task.estimatedHours || 0);
@@ -57,7 +58,7 @@ async function team(req, res) {
         todo: slot.todo,
         inProgress: slot.inProgress,
         done: slot.done,
-        estimatedHours: slot.estimatedHours,
+        estimatedHours: Math.round(slot.estimatedHours * 100) / 100,
       };
     }),
   });

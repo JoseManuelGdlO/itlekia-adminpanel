@@ -32,6 +32,10 @@ describe('AppShell', () => {
   it('shows the Equipo link for admins between Proyectos and Usuarios', () => {
     renderWithUser('admin');
     expect(screen.getByRole('link', { name: 'Equipo' })).toBeInTheDocument();
+    const navNames = screen.getAllByRole('link').map((link) => link.getAttribute('aria-label') || link.textContent);
+    expect(navNames).toEqual(expect.arrayContaining(['Proyectos', 'Equipo', 'Usuarios']));
+    expect(navNames.indexOf('Proyectos')).toBeLessThan(navNames.indexOf('Equipo'));
+    expect(navNames.indexOf('Equipo')).toBeLessThan(navNames.indexOf('Usuarios'));
   });
 
   it('hides the Equipo link for developers', () => {

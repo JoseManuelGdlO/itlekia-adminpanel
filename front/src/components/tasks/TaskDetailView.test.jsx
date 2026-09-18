@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { act, render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import TaskDetailView from './TaskDetailView';
 import * as tasksApi from '../../api/tasks';
@@ -19,7 +19,24 @@ vi.mock('./TaskDescriptionEditor', () => ({
   },
 }));
 
-const task = { id: 9, title: 'Build homepage', description: '<p>Hi</p>', projectId: 7, assigneeId: 1 };
+const task = {
+  id: 9,
+  title: 'Build homepage',
+  description: '<p>Hi</p>',
+  projectId: 7,
+  assigneeId: 1,
+  estimatedHours: null,
+};
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
 
 function renderView(user, props = {}) {
   return render(
@@ -113,7 +130,38 @@ describe('TaskDetailView delete', () => {
     vi.spyOn(tasksApi, 'updateTask').mockResolvedValueOnce({ ...task, estimatedHours: 3 });
     renderView({ id: 1, role: 'admin' });
     fireEvent.change(await screen.findByLabelText('Tiempo estimado (h)'), { target: { value: '3' } });
-    await waitFor(() => expect(tasksApi.updateTask).toHaveBeenCalledWith(9, { estimatedHours: 3 }));
+    await waitFor(() => expect(tasksApi.updateTask).toHaveBeenCalledWith(
+      9,
+      { estimatedHours: 3 },
+      { signal: expect.any(AbortSignal) }
+    ));
+  });
+
+  it('ignores stale estimated hours saves after a newer value wins', async () => {
+    mockDetail();
+    const first = deferred();
+    const second = deferred();
+    vi.spyOn(tasksApi, 'updateTask')
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+      .mockRejectedValueOnce(new Error('Nope'));
+    renderView({ id: 1, role: 'admin' });
+
+    const input = await screen.findByLabelText('Tiempo estimado (h)');
+    fireEvent.change(input, { target: { value: '1' } });
+    fireEvent.change(input, { target: { value: '2' } });
+    await waitFor(() => expect(tasksApi.updateTask).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      second.resolve({ ...task, estimatedHours: 2 });
+    });
+    await act(async () => {
+      first.resolve({ ...task, estimatedHours: 1 });
+    });
+
+    fireEvent.change(input, { target: { value: '3' } });
+
+    await waitFor(() => expect(input).toHaveValue(2));
   });
 
   it('hides estimated hours from a developer', async () => {

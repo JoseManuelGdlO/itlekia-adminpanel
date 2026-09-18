@@ -1,4 +1,4 @@
-const { leftmostColumnIds, columnBucket } = require('../../src/utils/taskBuckets');
+const { leftmostColumnIds, columnBucket, bucketResolver } = require('../../src/utils/taskBuckets');
 const { rightmostColumnIds } = require('../../src/utils/dashboardWindow');
 
 describe('taskBuckets', () => {
@@ -38,5 +38,17 @@ describe('taskBuckets', () => {
     expect(columnBucket(2, columns)).toBe('inProgress');
     expect(columnBucket(3, columns)).toBe('inProgress');
     expect(columnBucket(4, columns)).toBe('done');
+  });
+
+  it('builds a reusable bucket resolver', () => {
+    const resolveBucket = bucketResolver([
+      { id: 1, projectId: 1, position: 0 },
+      { id: 2, projectId: 1, position: 1 },
+      { id: 3, projectId: 1, position: 2 },
+    ]);
+
+    expect(resolveBucket(1)).toBe('todo');
+    expect(resolveBucket(2)).toBe('inProgress');
+    expect(resolveBucket(3)).toBe('done');
   });
 });

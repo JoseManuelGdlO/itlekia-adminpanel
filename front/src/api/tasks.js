@@ -10,8 +10,8 @@ export async function createTask(data) {
   return res.data;
 }
 
-export async function updateTask(id, data) {
-  const res = await api.put(`/tasks/${id}`, data);
+export async function updateTask(id, data, config = {}) {
+  const res = await api.put(`/tasks/${id}`, data, config);
   return res.data;
 }
 

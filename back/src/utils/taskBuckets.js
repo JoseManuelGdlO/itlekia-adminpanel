@@ -24,4 +24,15 @@ function columnBucket(columnId, columns) {
   return 'inProgress';
 }
 
-module.exports = { leftmostColumnIds, columnBucket };
+function bucketResolver(columns) {
+  const right = rightmostColumnIds(columns);
+  const left = leftmostColumnIds(columns);
+  return (columnId) => {
+    const id = Number(columnId);
+    if (right.has(id)) return 'done';
+    if (left.has(id)) return 'todo';
+    return 'inProgress';
+  };
+}
+
+module.exports = { leftmostColumnIds, columnBucket, bucketResolver };

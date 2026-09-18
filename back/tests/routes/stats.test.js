@@ -58,6 +58,12 @@ describe('stats team', () => {
       projectId: live.id, title: 'Review', columnId: review.id, assigneeId: developer.id, estimatedHours: 1,
     });
     await Task.create({
+      projectId: live.id, title: 'Float A', columnId: todo.id, assigneeId: developer.id, estimatedHours: 8.1,
+    });
+    await Task.create({
+      projectId: live.id, title: 'Float B', columnId: review.id, assigneeId: developer.id, estimatedHours: 0.7,
+    });
+    await Task.create({
       projectId: live.id, title: 'Done', columnId: done.id, assigneeId: developer.id, estimatedHours: 10,
     });
     await Task.create({
@@ -93,10 +99,10 @@ describe('stats team', () => {
       name: 'Dev',
       role: 'developer',
       projects: 2,
-      todo: 2,
-      inProgress: 2,
+      todo: 3,
+      inProgress: 3,
       done: 1,
-      estimatedHours: 4,
+      estimatedHours: 12.8,
     });
   });
 
