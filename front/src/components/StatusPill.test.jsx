@@ -4,8 +4,8 @@ import StatusPill from './StatusPill';
 
 describe('StatusPill', () => {
   it.each([
-    ['trabajando', 'Trabajando', 'bg-teal-soft/20 text-rail'],
-    ['parado', 'Parado', 'bg-accent text-rail'],
+    ['trabajando', 'Trabajando', 'bg-primary/12 text-primary'],
+    ['parado', 'Parado', 'bg-filament/18 text-[#8a5a12]'],
     ['oculto', 'Oculto', 'bg-muted text-muted-foreground'],
     ['archivado', 'Archivado', 'bg-muted text-muted-foreground'],
   ])('labels and styles %s projects', (status, label, classes) => {

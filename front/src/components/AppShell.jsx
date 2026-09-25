@@ -70,7 +70,7 @@ export default function AppShell({ children }) {
     <div className="flex h-screen overflow-hidden bg-background">
       <nav
         aria-label="Principal"
-        className={`flex shrink-0 flex-col bg-rail py-3 transition-[width] duration-120 ${
+        className={`flex shrink-0 flex-col bg-rail py-3 text-primary-foreground transition-[width] duration-120 ${
           expanded ? 'w-56' : 'w-12 items-center'
         }`}
       >
@@ -80,7 +80,9 @@ export default function AppShell({ children }) {
             title="Intelekia"
             className="flex size-10 shrink-0 items-center justify-center"
           >
-            <img src="/intelekia-isotipo.png" alt="Intelekia" className="size-7 object-contain" />
+            <span className="flex size-8 items-center justify-center rounded-md bg-background">
+              <img src="/intelekia-isotipo.png" alt="Intelekia" className="size-6 object-contain" />
+            </span>
           </NavLink>
           {expanded ? (
             <p className="min-w-0 flex-1 truncate px-1 font-heading text-sm font-semibold text-primary-foreground">
@@ -110,18 +112,18 @@ export default function AppShell({ children }) {
                 aria-label={item.label}
                 className={({ isActive }) =>
                   `relative flex h-10 items-center rounded-lg transition-colors duration-120 ${
-                    expanded ? 'gap-2 px-2' : 'size-10 justify-center'
+                    expanded ? 'gap-2 pr-2 pl-4' : 'size-10 justify-center'
                   } ${
                     isActive
-                      ? 'bg-primary/15 text-primary'
-                      : 'text-primary-foreground/70 hover:text-primary-foreground'
+                      ? 'bg-white/8 text-primary-foreground'
+                      : 'text-primary-foreground/60 hover:bg-white/5 hover:text-primary-foreground'
                   }`
                 }
               >
                 {({ isActive }) => (
                   <>
                     {isActive && (
-                      <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-primary" />
+                      <span className="absolute top-1/2 left-0.5 size-1.5 -translate-y-1/2 rounded-full bg-filament" />
                     )}
                     <Icon className="size-5 shrink-0" />
                     {expanded ? (
@@ -136,7 +138,7 @@ export default function AppShell({ children }) {
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-card px-4">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-5">
           <h1 className="font-heading text-xl font-semibold">{pageTitle(pathname)}</h1>
           <div className="flex items-center gap-2">
             <div className="hidden text-right sm:block">

@@ -84,9 +84,11 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {PULSE.map((card) => (
           <Card key={card.key} className="shadow-card">
-            <CardContent className="space-y-1 pt-0">
-              <p className="font-heading text-2xl font-semibold">{pulse[card.key]}</p>
-              <p className="text-xs text-muted-foreground">{card.label}</p>
+            <CardContent className="space-y-2 pt-0">
+              <p className="font-mono text-[2rem] leading-none tracking-tight">{pulse[card.key]}</p>
+              <p className="text-[0.68rem] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+                {card.label}
+              </p>
             </CardContent>
           </Card>
         ))}

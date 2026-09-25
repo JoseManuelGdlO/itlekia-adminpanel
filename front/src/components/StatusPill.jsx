@@ -3,9 +3,9 @@ import { statusLabel } from '../lib/projectStatus';
 export default function StatusPill({ status }) {
   const statusClasses =
     status === 'trabajando'
-      ? 'bg-teal-soft/20 text-rail'
+      ? 'bg-primary/12 text-primary'
       : status === 'parado'
-        ? 'bg-accent text-rail'
+        ? 'bg-filament/18 text-[#8a5a12]'
         : 'bg-muted text-muted-foreground';
 
   return (

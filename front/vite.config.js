@@ -5,11 +5,13 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
+const isTest = process.env.VITEST === 'true'
+
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    VitePWA({
+    !isTest && VitePWA({
       registerType: 'autoUpdate',
       includeAssets: [
         'intelekia-isotipo.png',
@@ -56,7 +58,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
       },
     }),
-  ],
+  ].filter(Boolean),
   resolve: {
     alias: {
       '@': path.resolve(process.cwd(), './src'),
